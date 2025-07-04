@@ -1,13 +1,23 @@
-import React, { useState } from 'react';
-import SplashScreen from '../components/SplashScreen';
+import { router } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { View } from "react-native";
+import SplashScreen from "../components/SplashScreen";
 
-export default function App() {
+export default function Index() {
   const [showSplash, setShowSplash] = useState(true);
 
-  React.useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 3000);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+      router.replace("/(auth)/login");
+    }, 3000);
+
     return () => clearTimeout(timer);
   }, []);
 
-  return showSplash ? <SplashScreen /> : <SignupScreen/>;
+  if (showSplash) {
+    return <SplashScreen />;
+  }
+
+  return <View />; // This won't be shown as we navigate away
 }
