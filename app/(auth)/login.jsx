@@ -4,20 +4,18 @@ import { router } from 'expo-router';
 import { StatusBar } from "expo-status-bar";
 import { useState } from 'react';
 import { Image, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from "react-native-safe-area-context";
 import COLORS from "../../constants/colors";
-
 const Login = () => {
   const [isPasswordShown, setIsPasswordShown] = useState(false);
 
   return (
     
-    <View style={{
+    <SafeAreaView style={{
       flex: 1,
-      backgroundColor: '#35359e',
-      alignItems: 'center',
-      paddingTop: 40
-    }}>
-         <StatusBar style="light" />
+      backgroundColor: COLORS.primary,
+      alignItems: 'center'}}>
+      <StatusBar barStyle="light-content" />
       <Image
         source={require('../../assets/image/logo.png')}
         style={{
@@ -122,7 +120,7 @@ const Login = () => {
               {isPasswordShown ? (
                 <Ionicons name="eye" size={24} color={COLORS.primary} />
               ) : (
-                <Ionicons name="eye-off" size={24} color={COLORS.darkprimary} />
+                <Ionicons name="eye-off" size={24} color={COLORS.primary} />
               )}
             </TouchableOpacity>
           </View>
@@ -149,7 +147,9 @@ const Login = () => {
         </View>
 
         {/* Login Button */}
-        <TouchableOpacity style={{
+        <TouchableOpacity 
+        onPress={() => router.push('../home')}
+        style={{
           backgroundColor: '#19194d',
           borderRadius: 10,
           paddingVertical: 14,
@@ -194,7 +194,7 @@ const Login = () => {
           </Pressable>
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 

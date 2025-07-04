@@ -1,13 +1,29 @@
-import { Stack } from 'expo-router';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { Slot, Stack } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import SplashScreen from '../components/SplashScreen';
 
 export default function RootLayout() {
-  return (
-    <SafeAreaProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(auth)" />
+  const [showSplash, setShowSplash] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // TODO: Replace with real auth logic
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (showSplash) {
+    return <SplashScreen />;
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <Stack>
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
-    </SafeAreaProvider>
-  );
+    );
+  }
+
+  // Show tabs if logged in
+  return <Slot />;
 } 
