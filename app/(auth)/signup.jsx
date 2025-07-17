@@ -4,14 +4,54 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { signUpWithEmail } from '../../lib/supabase';
 
 const Signup = ({ navigation }) => {
-    const [gender, setGender] = useState('');
+    const [fullName, setFullName] = useState('');
+  const [gender, setGender] = useState('');
   const [yearLevel, setYearLevel] = useState('');
   const [block, setBlock] = useState('');
 
   const [isPasswordShown, setIsPasswordShown] = useState(false);
 const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState('');
+
+  const handleSignup = async () => {
+    setError('');
+    setSuccess('');
+    if (!fullName || !yearLevel || !block || !gender) {
+      setError('Full Name, Year Level, Block, and Gender are required.');
+      return;
+    }
+    if (!email || !password) {
+      setError('Email and password are required.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    setLoading(true);
+    const { data, error } = await signUpWithEmail(email, password);
+    setLoading(false);
+    if (error) {
+      setError(error.message);
+    } else if (!data.user) {
+      setError('Check your email to confirm your account before logging in.');
+    } else {
+      setSuccess('Signed up successfully! Redirecting to login...');
+      setError('');
+      setTimeout(() => {
+        router.replace('./login');
+      }, 2000);
+    }
+  };
+
   return (
     <View
       style={{
@@ -64,7 +104,12 @@ const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
           >
             Please fill in your information
           </Text>
-
+          {error ? (
+            <Text style={{ color: 'red', textAlign: 'center', marginBottom: 8 }}>{error}</Text>
+          ) : null}
+          {success ? (
+            <Text style={{ color: 'green', textAlign: 'center', marginBottom: 8 }}>{success}</Text>
+          ) : null}
           {/* Full Name */}
           <Text
             style={{
@@ -89,6 +134,8 @@ const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
               marginBottom: 8,
               backgroundColor: '#f9fafb',
             }}
+            value={fullName}
+            onChangeText={setFullName}
           />
 
           {/* Email */}
@@ -115,9 +162,12 @@ const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
               marginBottom: 8,
               backgroundColor: '#f9fafb',
             }}
+            autoCapitalize="none"
+            value={email}
+            onChangeText={setEmail}
           />
 
-          {/* Contact Number */}
+          {/* Contact Number 
           <Text
             style={{
               fontSize: 14,
@@ -141,7 +191,7 @@ const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
               marginBottom: 8,
               backgroundColor: '#f9fafb',
             }}
-          />
+          />*/}
 
           {/* Year Level and Block */}
           <View
@@ -300,81 +350,85 @@ const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
 
           {/* Password */}
           <Text
-  style={{
-    fontSize: 14,
-    color: '#35359e',
-    marginBottom: 4,
-    marginTop: 10,
-    fontWeight: '600',
-  }}
->
-  Password
-</Text>
-<View style={{ position: 'relative' }}>
-  <TextInput
-    placeholder="Password"
-    placeholderTextColor="#888"
-    secureTextEntry={!isPasswordShown}
-    style={{
-      borderWidth: 1,
-      borderColor: '#d1d5db',
-      borderRadius: 8,
-      padding: 10,
-      fontSize: 15,
-      marginBottom: 8,
-      backgroundColor: '#f9fafb',
-    }}
-  />
-  <TouchableOpacity
-    onPress={() => setIsPasswordShown(!isPasswordShown)}
-    style={{ position: 'absolute', right: 12, top: 12 }}
-  >
-    <Ionicons
-      name={isPasswordShown ? 'eye' : 'eye-off'}
-      size={22}
-      color="#35359e"
-    />
-  </TouchableOpacity>
-</View>
+            style={{
+              fontSize: 14,
+              color: '#35359e',
+              marginBottom: 4,
+              marginTop: 10,
+              fontWeight: '600',
+            }}
+          >
+            Password
+          </Text>
+          <View style={{ position: 'relative' }}>
+            <TextInput
+              placeholder="Password"
+              placeholderTextColor="#888"
+              secureTextEntry={!isPasswordShown}
+              style={{
+                borderWidth: 1,
+                borderColor: '#d1d5db',
+                borderRadius: 8,
+                padding: 10,
+                fontSize: 15,
+                marginBottom: 8,
+                backgroundColor: '#f9fafb',
+              }}
+              value={password}
+              onChangeText={setPassword}
+            />
+            <TouchableOpacity
+              onPress={() => setIsPasswordShown(!isPasswordShown)}
+              style={{ position: 'absolute', right: 12, top: 12 }}
+            >
+              <Ionicons
+                name={isPasswordShown ? 'eye' : 'eye-off'}
+                size={22}
+                color="#35359e"
+              />
+            </TouchableOpacity>
+          </View>
 
           {/* Confirm Password */}
-<Text
-  style={{
-    fontSize: 14,
-    color: '#35359e',
-    marginBottom: 4,
-    marginTop: 10,
-    fontWeight: '600',
-  }}
->
-  Confirm Password
-</Text>
-<View style={{ position: 'relative' }}>
-  <TextInput
-    placeholder="Confirm Password"
-    placeholderTextColor="#888"
-    secureTextEntry={!isConfirmPasswordShown}
-    style={{
-      borderWidth: 1,
-      borderColor: '#d1d5db',
-      borderRadius: 8,
-      padding: 10,
-      fontSize: 15,
-      marginBottom: 8,
-      backgroundColor: '#f9fafb',
-    }}
-  />
-  <TouchableOpacity
-    onPress={() => setIsConfirmPasswordShown(!isConfirmPasswordShown)}
-    style={{ position: 'absolute', right: 12, top: 12 }}
-  >
-    <Ionicons
-      name={isConfirmPasswordShown ? 'eye' : 'eye-off'}
-      size={22}
-      color="#35359e"
-    />
-  </TouchableOpacity>
-</View>
+          <Text
+            style={{
+              fontSize: 14,
+              color: '#35359e',
+              marginBottom: 4,
+              marginTop: 10,
+              fontWeight: '600',
+            }}
+          >
+            Confirm Password
+          </Text>
+          <View style={{ position: 'relative' }}>
+            <TextInput
+              placeholder="Confirm Password"
+              placeholderTextColor="#888"
+              secureTextEntry={!isConfirmPasswordShown}
+              style={{
+                borderWidth: 1,
+                borderColor: '#d1d5db',
+                borderRadius: 8,
+                padding: 10,
+                fontSize: 15,
+                marginBottom: 8,
+                backgroundColor: '#f9fafb',
+              }}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+            <TouchableOpacity
+              onPress={() => setIsConfirmPasswordShown(!isConfirmPasswordShown)}
+              style={{ position: 'absolute', right: 12, top: 12 }}
+            >
+              <Ionicons
+                name={isConfirmPasswordShown ? 'eye' : 'eye-off'}
+                size={22}
+                color="#35359e"
+              />
+            </TouchableOpacity>
+          </View>
           {/* Signup Button */}
           <TouchableOpacity
             style={{
@@ -385,7 +439,10 @@ const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
               marginTop: 10,
               marginBottom: 10,
               elevation: 2,
+              opacity: loading ? 0.7 : 1,
             }}
+            onPress={handleSignup}
+            disabled={loading}
           >
             <Text
               style={{
@@ -394,7 +451,7 @@ const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
                 fontWeight: 'bold',
               }}
             >
-              Signup
+              {loading ? 'Signing up...' : 'Signup'}
             </Text>
           </TouchableOpacity>
 

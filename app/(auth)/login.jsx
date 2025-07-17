@@ -6,11 +6,29 @@ import { useState } from 'react';
 import { Image, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from "react-native-safe-area-context";
 import COLORS from "../../constants/colors";
+import { signInWithEmail } from '../../lib/supabase';
+
 const Login = () => {
   const [isPasswordShown, setIsPasswordShown] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    setLoading(true);
+    setError('');
+    const { error } = await signInWithEmail(email, password);
+    setLoading(false);
+    if (error) {
+      setError(error.message);
+    } else {
+      // On success, you may want to update global auth state or navigate
+      router.replace('/(tabs)/home');
+    }
+  };
 
   return (
-    
     <SafeAreaView style={{
       flex: 1,
       backgroundColor: COLORS.primary,
@@ -59,7 +77,9 @@ const Login = () => {
         }}>
           Login
         </Text>
-
+        {error ? (
+          <Text style={{ color: 'red', textAlign: 'center', marginBottom: 8 }}>{error}</Text>
+        ) : null}
         {/* Email */}
         <Text style={{
           fontSize: 15,
@@ -82,8 +102,10 @@ const Login = () => {
           }}
           placeholder="Email"
           placeholderTextColor="#888"
+          autoCapitalize="none"
+          value={email}
+          onChangeText={setEmail}
         />
-
         {/* Password */}
         <View style={{ marginBottom: 12 }}>
           <Text style={{
@@ -108,6 +130,8 @@ const Login = () => {
                 marginBottom: 8,
                 backgroundColor: '#f9fafb',
               }}
+              value={password}
+              onChangeText={setPassword}
             />
             <TouchableOpacity
               onPress={() => setIsPasswordShown(!isPasswordShown)}
@@ -125,7 +149,6 @@ const Login = () => {
             </TouchableOpacity>
           </View>
         </View>
-
         {/* Forgot Password */}
         <View style={{
           flexDirection: 'row',
@@ -145,28 +168,29 @@ const Login = () => {
             </Text>
           </TouchableOpacity>
         </View>
-
         {/* Login Button */}
         <TouchableOpacity 
-        onPress={() => router.push('../home')}
-        style={{
-          backgroundColor: '#19194d',
-          borderRadius: 10,
-          paddingVertical: 14,
-          alignItems: 'center',
-          marginBottom: 10,
-          marginTop: 4,
-          elevation: 2,
-        }}>
+          onPress={handleLogin}
+          style={{
+            backgroundColor: '#19194d',
+            borderRadius: 10,
+            paddingVertical: 14,
+            alignItems: 'center',
+            marginBottom: 10,
+            marginTop: 4,
+            elevation: 2,
+            opacity: loading ? 0.7 : 1,
+          }}
+          disabled={loading}
+        >
           <Text style={{
             color: '#fff',
             fontSize: 20,
             fontWeight: 'bold',
           }}>
-            Login
+            {loading ? 'Logging in...' : 'Login'}
           </Text>
         </TouchableOpacity>
-
         {/* Signup Prompt */}
         <View style={{
           flexDirection: 'row',
