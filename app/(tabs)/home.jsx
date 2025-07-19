@@ -4,16 +4,18 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import COLORS from '../../constants/colors';
+import { useRefresh } from '../../lib/RefreshContext';
 import { getProjects } from '../../lib/supabase';
 
 export default function HomeScreen() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { refreshKey } = useRefresh();
 
   useEffect(() => {
     fetchProjects();
-  }, []);
+  }, [refreshKey]);
 
   const fetchProjects = async () => {
     try {

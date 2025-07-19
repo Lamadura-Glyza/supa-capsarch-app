@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import SplashScreen from '../components/SplashScreen';
+import { RefreshProvider } from '../lib/RefreshContext';
 import { supabase } from '../lib/supabase';
 
 export default function RootLayout() {
@@ -67,12 +68,14 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      {!isLoggedIn ? (
-        <Stack.Screen name="(auth)" />
-      ) : (
-        <Stack.Screen name="(tabs)" />
-      )}
-    </Stack>
+    <RefreshProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        {!isLoggedIn ? (
+          <Stack.Screen name="(auth)" />
+        ) : (
+          <Stack.Screen name="(tabs)" />
+        )}
+      </Stack>
+    </RefreshProvider>
   );
 } 

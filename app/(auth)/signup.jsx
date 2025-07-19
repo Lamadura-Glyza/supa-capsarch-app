@@ -37,18 +37,32 @@ const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
       return;
     }
     setLoading(true);
-    const { data, error } = await signUpWithEmail(email, password);
-    setLoading(false);
-    if (error) {
-      setError(error.message);
-    } else if (!data.user) {
-      setError('Check your email to confirm your account before logging in.');
-    } else {
-      setSuccess('Signed up successfully! Redirecting to login...');
-      setError('');
-      setTimeout(() => {
-        router.replace('./login');
-      }, 2000);
+    try {
+      // Prepare user metadata for signup
+      const userMetadata = {
+        full_name: fullName,
+        year_level: yearLevel,
+        block: block,
+        gender: gender,
+      };
+      
+      const { data, error } = await signUpWithEmail(email, password, userMetadata);
+      if (error) {
+        setError(error.message);
+      } else if (!data.user) {
+        setError('Check your email to confirm your account before logging in.');
+      } else {
+        setSuccess('Account created successfully! Please check your email to confirm your account, then log in.');
+        setError('');
+        setTimeout(() => {
+          router.replace('./login');
+        }, 2000);
+      }
+    } catch (err) {
+      console.error('Signup error:', err);
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 

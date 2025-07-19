@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useRefresh } from '../../lib/RefreshContext';
 import { uploadProject } from '../../lib/supabase';
 
 export default function UploadScreen() {
@@ -13,6 +14,7 @@ export default function UploadScreen() {
   const [agreed, setAgreed] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [errors, setErrors] = useState({});
+  const { triggerRefresh } = useRefresh();
 
   // PDF upload logic
   const handlePdfUpload = async () => {
@@ -110,6 +112,9 @@ export default function UploadScreen() {
       };
 
       await uploadProject(projectData);
+      
+      // Trigger refresh of Home tab
+      triggerRefresh();
       
       Alert.alert(
         'Success!',
