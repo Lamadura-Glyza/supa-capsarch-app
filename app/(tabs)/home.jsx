@@ -1,98 +1,199 @@
+import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import COLORS from '../../constants/colors';
-
-const posts = [
-  {
-    id: 1,
-    user: {
-      name: 'Juan Dela Cruz',
-      section: 'BSIT-4 A',
-      avatar: require('../../assets/image/icon.png'),
-    },
-    date: 'February 14, 2025',
-    title: 'Capstone Archive',
-    description: 'A Digital Platform for Storing and Sharing Capstone Projects of Consolatrix College of Toledo City',
-    document: require('../../assets/image/logo.png'),
-    abstract: 'A mobile application that enables BSIT students to store, organize, and share capstone projects. It offers an accessible repository that serves as a valuable resource for current students seeking inspiration, guidance, or references for their own capstone projects.',
-    likes: 2,
-    comments: 2,
-  },
-  {
-    id: 2,
-    user: {
-      name: 'Juan Dela Cruz',
-      section: 'BSIT-4 A',
-      avatar: require('../../assets/image/icon.png'),
-    },
-    date: 'February 14, 2025',
-    title: 'Capstone Archive',
-    description: 'A Digital Platform for Storing and Sharing Capstone Projects of Consolatrix College of Toledo City',
-    document: require('../../assets/image/logo.png'),
-    abstract: 'A mobile application that enables BSIT students to store, organize, and share capstone projects. It offers an accessible repository that serves as a valuable resource for current students seeking inspiration, guidance, or references for their own capstone projects.',
-    likes: 2,
-    comments: 2,
-  },
-];
+import { getProjects } from '../../lib/supabase';
 
 export default function HomeScreen() {
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const projectsData = await getProjects();
+      setProjects(projectsData);
+    } catch (err) {
+      console.error('Error fetching projects:', err);
+      setError('Failed to load projects. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  const handleDownload = (pdfUrl) => {
+    // TODO: Implement PDF download functionality
+    console.log('Downloading PDF:', pdfUrl);
+  };
+
+  const handleViewPDF = (pdfUrl) => {
+    // TODO: Implement PDF viewer functionality
+    console.log('Viewing PDF:', pdfUrl);
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={{ backgroundColor: COLORS.primary }}>
+        <StatusBar barStyle="dark-content" />
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <Image 
+              source={require('../../assets/image/logo.png')} 
+              style={styles.headerLogo} 
+            />
+            <Text style={styles.headerTitle}>CapstoneArchive</Text>
+          </View>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>Loading projects...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={{ backgroundColor: COLORS.primary }}>
+        <StatusBar barStyle="dark-content" />
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <Image 
+              source={require('../../assets/image/logo.png')} 
+              style={styles.headerLogo} 
+            />
+            <Text style={styles.headerTitle}>CapstoneArchive</Text>
+          </View>
+        </View>
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={48} color="#ff6b6b" />
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchProjects}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={{backgroundColor: COLORS.primary}}>
-      {/* Header */}
+    <SafeAreaView style={{ backgroundColor: COLORS.primary }}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
-  <View style={styles.headerContent}>
-    <Image 
-      source={require('../../assets/image/logo.png')} 
-      style={styles.headerLogo} 
-    />
-    <Text style={styles.headerTitle}>CapstoneArchive</Text>
-  </View>
-</View>
+        <View style={styles.headerContent}>
+          <Image 
+            source={require('../../assets/image/logo.png')} 
+            style={styles.headerLogo} 
+          />
+          <Text style={styles.headerTitle}>CapstoneArchive</Text>
+        </View>
+      </View>
+      
       <ScrollView contentContainerStyle={{ padding: 10, paddingTop: 10 }}>
-        {posts.map(post => (
-          <View key={post.id} style={styles.card}>
-            {/* User Info */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-              <Image source={post.user.avatar} style={styles.avatar} />
-              <View style={{ marginLeft: 8 }}>
-                <Text style={styles.userName}>{post.user.name}  •  {post.user.section}</Text>
-                <Text style={styles.date}>{post.date}</Text>
+        {projects.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="document-outline" size={64} color="#ccc" />
+            <Text style={styles.emptyTitle}>No Projects Yet</Text>
+            <Text style={styles.emptyText}>
+              Be the first to upload a capstone project!
+            </Text>
+          </View>
+        ) : (
+          projects.map(project => (
+            <View key={project.id} style={styles.card}>
+              {/* User Info */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                <View style={styles.avatar}>
+                  <Ionicons name="person" size={20} color="#35359e" />
+                </View>
+                <View style={{ marginLeft: 8 }}>
+                  <Text style={styles.userName}>
+                    {project.user_id ? `User ${project.user_id.substring(0, 8)}...` : 'Anonymous User'}
+                  </Text>
+                  <Text style={styles.date}>{formatDate(project.created_at)}</Text>
+                </View>
+              </View>
+              
+              {/* Title & Description */}
+              <Text style={styles.cardTitle}>{project.title}</Text>
+              <Text style={styles.cardDesc}>{project.abstract.substring(0, 100)}...</Text>
+              
+              {/* PDF Preview */}
+              <View style={styles.docPreview}>
+                <Ionicons name="document" size={48} color="#35359e" />
+                <Text style={styles.pdfText}>PDF Document</Text>
+                <TouchableOpacity 
+                  style={styles.viewPdfButton}
+                  onPress={() => handleViewPDF(project.pdf_url)}
+                >
+                  <Text style={styles.viewPdfButtonText}>View PDF</Text>
+                </TouchableOpacity>
+              </View>
+              
+              {/* Abstract */}
+              <Text style={styles.abstractLabel}>Abstract</Text>
+              <Text style={styles.abstractText}>{project.abstract}</Text>
+              
+              {/* Links */}
+              <View style={styles.linksContainer}>
+                <TouchableOpacity 
+                  style={styles.linkButton}
+                  onPress={() => console.log('Source code:', project.source_code)}
+                >
+                  <Ionicons name="logo-github" size={16} color="#35359e" />
+                  <Text style={styles.linkText}>Source Code</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.linkButton}
+                  onPress={() => console.log('Video:', project.video_link)}
+                >
+                  <Ionicons name="logo-youtube" size={16} color="#ff0000" />
+                  <Text style={styles.linkText}>Video</Text>
+                </TouchableOpacity>
+              </View>
+              
+              {/* Action Bar */}
+              <View style={styles.actionBar}>
+                <TouchableOpacity style={styles.actionBtn}>
+                  <Ionicons name="heart-outline" size={22} color="#35359e" />
+                  <Text style={styles.actionText}>Like</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtn}>
+                  <Ionicons name="chatbubble-outline" size={22} color="#35359e" />
+                  <Text style={styles.actionText}>Comment</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtn}>
+                  <Ionicons name="bookmark-outline" size={22} color="#35359e" />
+                  <Text style={styles.actionText}>Bookmark</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.actionBtn}
+                  onPress={() => handleDownload(project.pdf_url)}
+                >
+                  <Ionicons name="download-outline" size={22} color="#35359e" />
+                  <Text style={styles.actionText}>Download</Text>
+                </TouchableOpacity>
               </View>
             </View>
-            {/* Title & Description */}
-            <Text style={styles.cardTitle}>{post.title}</Text>
-            <Text style={styles.cardDesc}>{post.description}</Text>
-            {/* Document Preview */}
-            <View style={styles.docPreview}>
-              <Image source={post.document} style={styles.docImage} resizeMode="contain" />
-            </View>
-            {/* Abstract */}
-            <Text style={styles.abstractLabel}>Abstract</Text>
-            <Text style={styles.abstractText}>{post.abstract}</Text>
-            {/* Action Bar */}
-            <View style={styles.actionBar}>
-              <TouchableOpacity style={styles.actionBtn}>
-                <Image source={require('../../assets/images/like.png')} style={styles.actionIcon} />
-                <Text style={styles.actionText}>{post.likes} Likes</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn}>
-                <Image source={require('../../assets/images/comment.png')} style={styles.actionIcon} />
-                <Text style={styles.actionText}>{post.comments} Comments</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn}>
-                <Image source={require('../../assets/images/bookmark.png')} style={styles.actionIcon} />
-                <Text style={styles.actionText}>Bookmark</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn}>
-                <Image source={require('../../assets/images/download.png')} style={styles.actionIcon} />
-                <Text style={styles.actionText}>Download</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ))}
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -122,7 +223,42 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
-    card: {
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#fff',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#fff',
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 20,
+    backgroundColor: '#fff',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: COLORS.primary,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  card: {
     backgroundColor: '#fff',
     borderRadius: 16,
     padding: 16,
@@ -137,6 +273,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
+    backgroundColor: '#e0e0e0', // Placeholder for avatar
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   userName: {
     fontWeight: 'bold',
@@ -169,9 +308,23 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: '#fafbff',
   },
-  docImage: {
-    width: 100,
-    height: 200,
+  pdfText: {
+    fontSize: 14,
+    color: '#35359e',
+    fontWeight: 'bold',
+    marginTop: 8,
+  },
+  viewPdfButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  viewPdfButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   abstractLabel: {
     fontWeight: 'bold',
@@ -184,6 +337,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#444',
     marginBottom: 8,
+  },
+  linksContainer: {
+    flexDirection: 'row',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  linkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 15,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+  },
+  linkText: {
+    marginLeft: 5,
+    fontSize: 13,
+    color: '#35359e',
   },
   actionBar: {
     flexDirection: 'row',
@@ -205,5 +377,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#35359e',
     fontWeight: '600',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 10,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+    textAlign: 'center',
   },
 }); 
