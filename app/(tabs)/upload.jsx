@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Platform, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import OCRUploader from '../../components/OCRUploader';
+// Removed: import OCRUploader from '../../components/OCRUploader';
 
 export default function UploadScreen() {
   const [activeTab, setActiveTab] = useState('form'); // 'form' or 'ocr'
@@ -83,10 +83,8 @@ export default function UploadScreen() {
     </ScrollView>
   );
 
-  const renderOCRTab = () => (
-    <OCRUploader />
-  );
-
+  // Remove renderOCRTab and all OCR tab logic
+  // Only render the manual upload form
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -97,38 +95,8 @@ export default function UploadScreen() {
         <Text style={styles.headerTitle}>Upload Project</Text>
       </View>
 
-      {/* Tab Navigation */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'form' && styles.activeTab]}
-          onPress={() => setActiveTab('form')}
-        >
-          <Ionicons 
-            name="document-text-outline" 
-            size={20} 
-            color={activeTab === 'form' ? '#35359e' : '#666'} 
-          />
-          <Text style={[styles.tabText, activeTab === 'form' && styles.activeTabText]}>
-            Manual Upload
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'ocr' && styles.activeTab]}
-          onPress={() => setActiveTab('ocr')}
-        >
-          <Ionicons 
-            name="scan-outline" 
-            size={20} 
-            color={activeTab === 'ocr' ? '#35359e' : '#666'} 
-          />
-          <Text style={[styles.tabText, activeTab === 'ocr' && styles.activeTabText]}>
-            OCR Scanner
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Content */}
-      {activeTab === 'form' ? renderFormTab() : renderOCRTab()}
+      {/* Content: Only render the manual upload form */}
+      {renderFormTab()}
     </View>
   );
 }
