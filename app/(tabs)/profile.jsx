@@ -4,17 +4,17 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    Image,
-    Modal,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image,
+  Modal,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SceneMap, TabBar, TabView } from 'react-native-tab-view';
@@ -251,7 +251,12 @@ export default function ProfileScreen() {
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" />
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profile</Text>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Profile</Text>
+          </View>
+          <View style={styles.settingsButton}>
+            <Ionicons name="settings-outline" size={24} color="transparent" />
+          </View>
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
@@ -266,7 +271,12 @@ export default function ProfileScreen() {
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" />
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profile</Text>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Profile</Text>
+          </View>
+          <View style={styles.settingsButton}>
+            <Ionicons name="settings-outline" size={24} color="transparent" />
+          </View>
         </View>
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.errorContainer}>
@@ -302,7 +312,9 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Profile</Text>
+        </View>
         <TouchableOpacity 
           style={styles.settingsButton}
           onPress={() => setSettingsModalVisible(true)}
@@ -355,6 +367,12 @@ export default function ProfileScreen() {
               <Text style={styles.userYearBlock}>{profile?.block || 'A'}</Text>
             )}
           </View>
+          
+          {/* Gender Section */}
+          <View style={{ width: '100%', marginBottom: 8, alignItems: 'center' }}>
+            <Text style={styles.genderText}>{profile?.gender || 'Not specified'}</Text>
+          </View>
+          
           {/* Bio Section */}
           <View style={{ width: '100%', marginBottom: 16 }}>
             {editMode ? (
@@ -368,7 +386,7 @@ export default function ProfileScreen() {
                 textAlignVertical="top"
               />
             ) : (
-              <Text style={styles.bioText}>{profile?.bio || 'Passionate about creating innovative solutions through technology'}</Text>
+              <Text style={styles.bioText}>{profile?.bio || 'No Bio'}</Text>
             )}
           </View>
           {/* Project and Bookmark Counters */}
@@ -455,16 +473,22 @@ const styles = {
   },
   header: {
     backgroundColor: COLORS.primary,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
   },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+
   headerTitle: {
     color: '#fff',
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   settingsButton: {
     padding: 5,
@@ -762,6 +786,12 @@ const styles = {
     color: '#666',
     textAlign: 'center',
     paddingHorizontal: 20,
+  },
+  genderText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+    textAlign: 'center',
   },
   saveBtn: {
     backgroundColor: COLORS.primary,

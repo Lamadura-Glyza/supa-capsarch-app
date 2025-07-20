@@ -2,11 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import React, { useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRefresh } from '../../lib/RefreshContext';
 import { uploadProject } from '../../lib/supabase';
 
 export default function UploadScreen() {
   const [title, setTitle] = useState('');
+  const [titleDescription, setTitleDescription] = useState('');
   const [abstract, setAbstract] = useState('');
   const [sourceCode, setSourceCode] = useState('');
   const [videoLink, setVideoLink] = useState('');
@@ -53,6 +55,12 @@ export default function UploadScreen() {
 
     if (!title.trim()) {
       newErrors.title = 'Project title is required';
+    }
+
+    if (!titleDescription.trim()) {
+      newErrors.titleDescription = 'Project title description is required';
+    } else if (titleDescription.trim().length > 100) {
+      newErrors.titleDescription = 'Project title description must be 100 characters or less';
     }
 
     if (!abstract.trim()) {
@@ -105,6 +113,7 @@ export default function UploadScreen() {
     try {
       const projectData = {
         title: title.trim(),
+        titleDescription: titleDescription.trim(),
         abstract: abstract.trim(),
         sourceCode: sourceCode.trim(),
         videoLink: videoLink.trim(),
@@ -125,6 +134,7 @@ export default function UploadScreen() {
             onPress: () => {
               // Reset form
               setTitle('');
+              setTitleDescription('');
               setAbstract('');
               setSourceCode('');
               setVideoLink('');
@@ -158,6 +168,24 @@ export default function UploadScreen() {
         }}
       />
       {errors.title && <Text style={styles.errorText}>{errors.title}</Text>}
+
+      {/* Project Title Description */}
+      <Text style={styles.label}>Project Title Description *</Text>
+      <TextInput
+        style={[styles.input, errors.titleDescription && styles.inputError]}
+        placeholder="Enter project title description (max 100 characters)"
+        placeholderTextColor="#888"
+        value={titleDescription}
+        onChangeText={(text) => {
+          setTitleDescription(text);
+          if (errors.titleDescription) setErrors(prev => ({ ...prev, titleDescription: null }));
+        }}
+        maxLength={100}
+      />
+      <Text style={styles.characterCount}>
+        {titleDescription.length}/100 characters
+      </Text>
+      {errors.titleDescription && <Text style={styles.errorText}>{errors.titleDescription}</Text>}
 
       {/* Abstract */}
       <Text style={styles.label}>Abstract *</Text>
@@ -273,7 +301,7 @@ export default function UploadScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Upload Project</Text>
@@ -281,7 +309,7 @@ export default function UploadScreen() {
 
       {/* Content */}
       {renderFormTab()}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -294,8 +322,7 @@ const styles = {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#35359e',
-    paddingTop: 50,
-    paddingBottom: 15,
+    paddingVertical: 15,
     paddingHorizontal: 20,
   },
   backBtn: {
@@ -440,6 +467,12 @@ const styles = {
     color: '#ff6b6b',
     fontSize: 12,
     marginTop: 5,
+  },
+  characterCount: {
+    color: '#888',
+    fontSize: 12,
+    marginTop: 5,
+    textAlign: 'right',
   },
 };
 

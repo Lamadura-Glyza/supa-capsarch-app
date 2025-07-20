@@ -1,20 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import COLORS from '../../constants/colors';
 import { useRefresh } from '../../lib/RefreshContext';
-import { getProjects } from '../../lib/supabase';
+import { bookmarkProject, getCurrentUser, getProjects, likeProject } from '../../lib/supabase';
 
 export default function HomeScreen() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const { refreshKey } = useRefresh();
+  const router = useRouter();
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [menuProject, setMenuProject] = useState(null);
 
   useEffect(() => {
     fetchProjects();
+    getCurrentUser().then(({ data }) => setCurrentUserId(data?.user?.id || null));
   }, [refreshKey]);
 
   const fetchProjects = async () => {
@@ -31,6 +38,24 @@ export default function HomeScreen() {
     }
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const projectsData = await getProjects();
+      setProjects(projectsData);
+      setError(null);
+    } catch (err) {
+      console.error('Error refreshing projects:', err);
+      setError('Failed to refresh projects. Please try again.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    onRefresh();
+  };
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -40,19 +65,73 @@ export default function HomeScreen() {
     });
   };
 
-  const handleDownload = (pdfUrl) => {
-    // TODO: Implement PDF download functionality
-    console.log('Downloading PDF:', pdfUrl);
+  const handleLike = async (projectId) => {
+    try {
+      await likeProject(projectId);
+      // Optimistically update UI
+      setProjects(prev => prev.map(p =>
+        p.id === projectId
+          ? {
+              ...p,
+              liked_by_user: !p.liked_by_user,
+              like_count: p.liked_by_user ? p.like_count - 1 : p.like_count + 1,
+            }
+          : p
+      ));
+    } catch (error) {
+      console.error('Error liking project:', error);
+    }
   };
 
-  const handleViewPDF = (pdfUrl) => {
-    // TODO: Implement PDF viewer functionality
-    console.log('Viewing PDF:', pdfUrl);
+  const handleBookmark = async (projectId) => {
+    try {
+      await bookmarkProject(projectId);
+      // Always refetch projects for accurate bookmark count
+      fetchProjects();
+    } catch (error) {
+      console.error('Error bookmarking project:', error);
+    }
+  };
+
+  const handleComment = (projectId) => {
+    router.push({ pathname: '/CommentScreen', params: { projectId } });
+  };
+
+  const handleShare = async (project) => {
+    try {
+      await Share.share({
+        message: `${project.title}\n\n${project.title_description || ''}\n\nCheck out this project on CapstoneArchive!`,
+        title: project.title,
+      });
+    } catch (error) {
+      console.error('Error sharing project:', error);
+    }
+  };
+
+  const openMenu = (project) => {
+    setMenuProject(project);
+    setMenuVisible(true);
+  };
+  const closeMenu = () => {
+    setMenuVisible(false);
+    setMenuProject(null);
+  };
+  const handleEdit = () => {
+    // TODO: Implement edit navigation
+    closeMenu();
+  };
+  const handleDelete = () => {
+    // TODO: Implement delete logic
+    closeMenu();
+  };
+  const handleReport = () => {
+    // TODO: Implement report logic
+    closeMenu();
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={{ backgroundColor: COLORS.primary }}>
+      <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" />
         <View style={styles.header}>
           <View style={styles.headerContent}>
@@ -73,7 +152,7 @@ export default function HomeScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={{ backgroundColor: COLORS.primary }}>
+      <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" />
         <View style={styles.header}>
           <View style={styles.headerContent}>
@@ -96,7 +175,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={{ backgroundColor: COLORS.primary }}>
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.header}>
         <View style={styles.headerContent}>
@@ -108,26 +187,54 @@ export default function HomeScreen() {
         </View>
       </View>
       
-      <ScrollView contentContainerStyle={{ padding: 10, paddingTop: 10 }}>
+      <View style={styles.mainContainer}>
+        <ScrollView 
+          style={{ backgroundColor: '#f5f5f5', flex: 1 }}
+          contentContainerStyle={{ 
+            padding: 10, 
+            paddingTop: 10,
+            backgroundColor: '#f5f5f5',
+            flexGrow: 1,
+            borderWidth: 0,
+          }}
+          refreshControl={
+            <RefreshControl 
+              refreshing={refreshing} 
+              onRefresh={handleRefresh}
+              tintColor="transparent"
+              colors={['transparent']}
+            />
+          }
+        >
         {projects.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="document-outline" size={64} color="#ccc" />
             <Text style={styles.emptyTitle}>No Projects Yet</Text>
-            <Text style={styles.emptyText}>
-              Be the first to upload a capstone project!
+            <Text style={styles.emptySubtitle}>
+              Be the first to upload a project!
             </Text>
           </View>
         ) : (
           projects.map(project => (
             <View key={project.id} style={styles.card}>
+              {/* Kebab Menu */}
+              <TouchableOpacity style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }} onPress={() => openMenu(project)}>
+                <Ionicons name="ellipsis-vertical" size={22} color="#888" />
+              </TouchableOpacity>
               {/* User Info */}
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
                 <View style={styles.avatar}>
-                  <Ionicons name="person" size={20} color="#35359e" />
+                  {project.user_profiles?.profile_picture_url ? (
+                    <Image 
+                      source={{ uri: project.user_profiles.profile_picture_url }} 
+                      style={styles.avatarImage}
+                    />
+                  ) : (
+                    <Ionicons name="person" size={20} color="#35359e" />
+                  )}
                 </View>
                 <View style={{ marginLeft: 8 }}>
                   <Text style={styles.userName}>
-                    {project.user_id ? `User ${project.user_id.substring(0, 8)}...` : 'Anonymous User'}
+                    {project.user_profiles?.full_name || (project.user_id ? `User ${project.user_id.substring(0, 8)}...` : 'Anonymous User')}
                   </Text>
                   <Text style={styles.date}>{formatDate(project.created_at)}</Text>
                 </View>
@@ -135,7 +242,9 @@ export default function HomeScreen() {
               
               {/* Title & Description */}
               <Text style={styles.cardTitle}>{project.title}</Text>
-              <Text style={styles.cardDesc}>{project.abstract.substring(0, 100)}...</Text>
+              <Text style={styles.cardDesc}>
+                {project.title_description || project.abstract.substring(0, 100) + '...'}
+              </Text>
               
               {/* PDF Preview */}
               <View style={styles.docPreview}>
@@ -143,7 +252,7 @@ export default function HomeScreen() {
                 <Text style={styles.pdfText}>PDF Document</Text>
                 <TouchableOpacity 
                   style={styles.viewPdfButton}
-                  onPress={() => handleViewPDF(project.pdf_url)}
+                  onPress={() => {}}
                 >
                   <Text style={styles.viewPdfButtonText}>View PDF</Text>
                 </TouchableOpacity>
@@ -173,57 +282,109 @@ export default function HomeScreen() {
               
               {/* Action Bar */}
               <View style={styles.actionBar}>
-                <TouchableOpacity style={styles.actionBtn}>
-                  <Ionicons name="heart-outline" size={22} color="#35359e" />
-                  <Text style={styles.actionText}>Like</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn}>
-                  <Ionicons name="chatbubble-outline" size={22} color="#35359e" />
-                  <Text style={styles.actionText}>Comment</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn}>
-                  <Ionicons name="bookmark-outline" size={22} color="#35359e" />
-                  <Text style={styles.actionText}>Bookmark</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.actionBtn}
-                  onPress={() => handleDownload(project.pdf_url)}
-                >
-                  <Ionicons name="download-outline" size={22} color="#35359e" />
-                  <Text style={styles.actionText}>Download</Text>
-                </TouchableOpacity>
+                {/* Like */}
+                <View style={styles.actionBtnCol}>
+                  <View style={styles.iconRow}>
+                    <TouchableOpacity onPress={() => handleLike(project.id)}>
+                      <Ionicons 
+                        name={project.liked_by_user ? 'heart' : 'heart-outline'} 
+                        size={22} 
+                        color={project.liked_by_user ? '#ff6b6b' : '#35359e'} 
+                      />
+                    </TouchableOpacity>
+                    <Text style={styles.counterText}>{project.like_count || 0}</Text>
+                  </View>
+                  <Text style={styles.actionLabel}>Like</Text>
+                </View>
+                {/* Comment */}
+                <View style={styles.actionBtnCol}>
+                  <View style={styles.iconRow}>
+                    <TouchableOpacity onPress={() => handleComment(project.id)}>
+                      <Ionicons name="chatbubble-outline" size={22} color="#35359e" />
+                    </TouchableOpacity>
+                    <Text style={styles.counterText}>{project.comment_count || 0}</Text>
+                  </View>
+                  <Text style={styles.actionLabel}>Comment</Text>
+                </View>
+                {/* Bookmark */}
+                <View style={styles.actionBtnCol}>
+                  <View style={styles.iconRow}>
+                    <TouchableOpacity onPress={() => handleBookmark(project.id)}>
+                      <Ionicons 
+                        name={project.bookmarked_by_user ? 'bookmark' : 'bookmark-outline'} 
+                        size={22} 
+                        color={project.bookmarked_by_user ? '#35359e' : '#35359e'} 
+                      />
+                    </TouchableOpacity>
+                    <Text style={styles.counterText}>{project.bookmark_count || 0}</Text>
+                  </View>
+                  <Text style={styles.actionLabel}>Bookmark</Text>
+                </View>
               </View>
             </View>
           ))
         )}
-      </ScrollView>
+        </ScrollView>
+        {/* Kebab Menu Modal */}
+        <Modal
+          visible={menuVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={closeMenu}
+        >
+          <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={closeMenu} />
+          <View style={styles.menuContainer}>
+            {menuProject && currentUserId === menuProject.user_id ? (
+              <>
+                <TouchableOpacity style={styles.menuItem} onPress={handleEdit}><Text style={styles.menuItemText}>Edit</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.menuItem} onPress={handleDelete}><Text style={styles.menuItemText}>Delete</Text></TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity style={styles.menuItem} onPress={handleReport}><Text style={styles.menuItemText}>Report</Text></TouchableOpacity>
+            )}
+          </View>
+        </Modal>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    height: '100%',
+  },
+  mainContainer: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    borderWidth: 0,
+    borderBottomWidth: 0,
+    height: '100%',
+  },
+
   header: {
     backgroundColor: COLORS.primary,
-    paddingVertical: 16, // Combined paddingTop and paddingBottom
-    paddingHorizontal: 16, // Add horizontal padding
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   headerContent: {
-    flexDirection: 'row', // This makes children align horizontally
-    alignItems: 'center', // Vertically center items
-    justifyContent: 'center', // Horizontally center the row
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
   },
   headerLogo: {
-    width: 32, // Reduced size for better row alignment
-    height: 32,
-    marginRight: 8, // Space between logo and title
+    width: 28,
+    height: 28,
+    marginRight: 10,
   },
   headerTitle: {
     color: '#fff',
-    fontSize: 22, // Slightly reduced size
-    fontWeight: 'bold',
-    textShadowColor: '#222',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+    fontSize: 20,
+    fontWeight: '600',
   },
   loadingContainer: {
     flex: 1,
@@ -279,6 +440,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  avatarImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
   userName: {
     fontWeight: 'bold',
     fontSize: 15,
@@ -294,6 +460,12 @@ const styles = StyleSheet.create({
     color: '#19194d',
     marginTop: 8,
     marginBottom: 2,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+    marginBottom: 4,
   },
   cardDesc: {
     fontSize: 14,
@@ -361,9 +533,10 @@ const styles = StyleSheet.create({
   },
   actionBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
     margin: 5,
+    marginTop: 10,
   },
   actionBtn: {
     flexDirection: 'column',
@@ -384,18 +557,79 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 40,
+    backgroundColor: '#f5f5f5',
+    borderWidth: 0,
+    borderBottomWidth: 0,
+    minHeight: '100%',
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 10,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 5,
+    fontSize: 28,
+    fontWeight: '700',
+    color: COLORS.primary,
+    marginBottom: 16,
     textAlign: 'center',
+    letterSpacing: -0.5,
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 24,
+    fontWeight: '400',
+  },
+  actionBtnCol: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  iconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  counterText: {
+    marginLeft: 6,
+    fontSize: 14,
+    color: '#35359e',
+    fontWeight: 'bold',
+  },
+  actionLabel: {
+    fontSize: 13,
+    color: '#35359e',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  menuOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+  },
+  menuContainer: {
+    position: 'absolute',
+    top: 100,
+    right: 30,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+    zIndex: 100,
+  },
+  menuItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: '#35359e',
+    fontWeight: '600',
   },
 }); 
