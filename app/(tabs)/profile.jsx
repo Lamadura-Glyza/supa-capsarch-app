@@ -1,17 +1,20 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Image,
-  Modal,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Image,
+    Modal,
+    Platform,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SceneMap, TabBar, TabView } from 'react-native-tab-view';
@@ -19,6 +22,7 @@ import COLORS from '../../constants/colors';
 import { getUserProfile, signOut } from '../../lib/supabase';
 
 const { width } = Dimensions.get('window');
+const DEFAULT_AVATAR = 'https://ui-avatars.com/api/?name=User&background=4A90E2&color=fff&size=120';
 
 export default function ProfileScreen() {
   const [profile, setProfile] = useState(null);
@@ -26,6 +30,11 @@ export default function ProfileScreen() {
   const [error, setError] = useState(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editBio, setEditBio] = useState('');
+  const [editYear, setEditYear] = useState('');
+  const [editBlock, setEditBlock] = useState('');
+  const [editAvatar, setEditAvatar] = useState(DEFAULT_AVATAR);
   const [index, setIndex] = useState(0);
   const [routes] = useState([
     { key: 'projects', title: 'Project' },
@@ -33,9 +42,9 @@ export default function ProfileScreen() {
   ]);
 
   // Placeholder data for stats and projects
-  const [stats] = useState({
-    projects: 3,
-    downloads: 520
+  const [stats, setStats] = useState({
+    projects: 3, // TODO: fetch from Supabase
+    bookmarks: 2 // TODO: fetch from Supabase
   });
 
   const [userProjects] = useState([
@@ -62,20 +71,31 @@ export default function ProfileScreen() {
     fetchProfile();
   }, []);
 
+  // Refresh profile data when screen comes into focus (e.g., returning from EditProfile)
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfile();
+    }, [])
+  );
+
   const fetchProfile = async () => {
     try {
       setLoading(true);
       setError(null);
       const profileData = await getUserProfile();
-      
+      console.log('Fetched profile data:', profileData); // Debug log
       if (!profileData) {
-        console.log('No profile found');
         setError('Profile not found. Please contact support or try logging out and back in.');
       } else {
+        console.log('Profile picture URL:', profileData.profile_picture_url); // Debug log
         setProfile(profileData);
+        setEditBio(profileData.bio || '');
+        setEditYear(profileData.year_level || '');
+        setEditBlock(profileData.block || '');
+        setEditAvatar(profileData.profile_picture_url || DEFAULT_AVATAR);
       }
     } catch (err) {
-      console.error('Error fetching profile:', err);
+      console.error('Error fetching profile:', err); // Debug log
       setError('Failed to load profile. Please try again.');
     } finally {
       setLoading(false);
@@ -84,15 +104,11 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
-    
     Alert.alert(
       'Confirm Logout',
       'Are you sure you want to logout?',
       [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Logout',
           style: 'destructive',
@@ -103,12 +119,8 @@ export default function ProfileScreen() {
               if (error) {
                 Alert.alert('Logout Error', error.message);
               } else {
-                console.log('Logout successful, navigating to login...');
                 router.replace('/(auth)/login');
               }
-            } catch (err) {
-              console.error('Logout error:', err);
-              Alert.alert('Logout Error', 'An unexpected error occurred.');
             } finally {
               setIsLoggingOut(false);
             }
@@ -120,8 +132,28 @@ export default function ProfileScreen() {
 
   const handleEditProfile = () => {
     setSettingsModalVisible(false);
-    // Navigate to edit profile screen (you can implement this later)
-    Alert.alert('Edit Profile', 'Edit Profile functionality will be implemented soon.');
+    router.push('/EditProfile');
+  };
+
+  const handleSaveProfile = () => {
+    // TODO: Save to Supabase
+    setProfile(prev => ({
+      ...prev,
+      bio: editBio,
+      year_level: editYear,
+      block: editBlock,
+      // avatar: editAvatar, // For future avatar upload
+    }));
+    setEditMode(false);
+    Alert.alert('Profile updated!', 'Your profile changes have been saved.');
+  };
+
+  const handleCancelEdit = () => {
+    setEditMode(false);
+    setEditBio(profile?.bio || '');
+    setEditYear(profile?.year_level || '');
+    setEditBlock(profile?.block || '');
+    setEditAvatar(DEFAULT_AVATAR);
   };
 
   const renderTabBar = props => (
@@ -244,7 +276,6 @@ export default function ProfileScreen() {
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </View>
-
           <TouchableOpacity
             style={[styles.logoutButton, isLoggingOut && styles.logoutButtonDisabled]}
             onPress={handleLogout}
@@ -259,7 +290,6 @@ export default function ProfileScreen() {
               {isLoggingOut ? 'Logging out...' : 'Logout'}
             </Text>
           </TouchableOpacity>
-
           <View style={styles.versionContainer}>
             <Text style={styles.versionText}>CapstoneArchive v1.0.0</Text>
           </View>
@@ -271,8 +301,6 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
-      
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Profile</Text>
         <TouchableOpacity 
@@ -282,38 +310,91 @@ export default function ProfileScreen() {
           <Ionicons name="settings-outline" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
-
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Profile Section */}
         <View style={styles.profileSection}>
-          <Image
-            source={{ uri: 'https://via.placeholder.com/120x120/4A90E2/FFFFFF?text=JD' }}
-            style={styles.profilePicture}
-          />
-          <Text style={styles.userName}>
-            {profile?.full_name || 'Juan Dela Cruz'}
-          </Text>
-          <Text style={styles.userSection}>
-            {profile?.block || 'BSIT-4A'}
-          </Text>
-          <Text style={styles.userBio}>
-            Passionate about creating innovative solutions through technology
-          </Text>
-          
-          {/* Stats */}
+          {/* Profile Picture with Edit Button */}
+          <View style={{ alignItems: 'center', marginBottom: 10 }}>
+            {console.log('Displaying profile picture URL:', profile?.profile_picture_url || DEFAULT_AVATAR)}
+            <Image
+              source={{ uri: profile?.profile_picture_url || DEFAULT_AVATAR }}
+              style={styles.profilePicture}
+            />
+            {editMode && (
+              <TouchableOpacity style={styles.editAvatarBtn} onPress={() => Alert.alert('Edit Avatar', 'Profile picture upload coming soon!')}>
+                <Ionicons name="camera" size={20} color="#fff" />
+              </TouchableOpacity>
+            )}
+          </View>
+          {/* Name */}
+          <Text style={styles.userName}>{profile?.full_name || 'Juan Dela Cruz'}</Text>
+          {/* Department, Year Level, Block */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <Text style={styles.userDept}>BSIT</Text>
+            <Text style={styles.userDeptSep}> – </Text>
+            {editMode ? (
+              <TextInput
+                style={styles.userYearBlockInput}
+                value={editYear}
+                onChangeText={setEditYear}
+                placeholder="Year"
+                keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'}
+              />
+            ) : (
+              <Text style={styles.userYearBlock}>{profile?.year_level || '4'}</Text>
+            )}
+            <Text style={styles.userDeptSep}> </Text>
+            {editMode ? (
+              <TextInput
+                style={styles.userYearBlockInput}
+                value={editBlock}
+                onChangeText={setEditBlock}
+                placeholder="Block"
+              />
+            ) : (
+              <Text style={styles.userYearBlock}>{profile?.block || 'A'}</Text>
+            )}
+          </View>
+          {/* Bio Section */}
+          <View style={{ width: '100%', marginBottom: 16 }}>
+            {editMode ? (
+              <TextInput
+                style={styles.bioInput}
+                value={editBio}
+                onChangeText={setEditBio}
+                placeholder="Write something about yourself..."
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+            ) : (
+              <Text style={styles.bioText}>{profile?.bio || 'Passionate about creating innovative solutions through technology'}</Text>
+            )}
+          </View>
+          {/* Project and Bookmark Counters */}
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
               <Text style={styles.statNumber}>{stats.projects}</Text>
-              <Text style={styles.statLabel}>Project</Text>
+              <Text style={styles.statLabel}>Projects</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.downloads}</Text>
-              <Text style={styles.statLabel}>Downloads</Text>
+              <Text style={styles.statNumber}>{stats.bookmarks}</Text>
+              <Text style={styles.statLabel}>Bookmarks</Text>
             </View>
           </View>
+          {/* Edit Mode Buttons */}
+          {editMode && (
+            <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 16 }}>
+              <TouchableOpacity style={styles.saveBtn} onPress={handleSaveProfile}>
+                <Text style={styles.saveBtnText}>Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelEdit}>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
-
         {/* Tab View */}
         <View style={styles.tabContainer}>
           <TabView
@@ -325,7 +406,6 @@ export default function ProfileScreen() {
           />
         </View>
       </ScrollView>
-
       {/* Settings Modal */}
       <Modal
         visible={settingsModalVisible}
@@ -345,13 +425,11 @@ export default function ProfileScreen() {
                 <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
             </View>
-            
             <TouchableOpacity style={styles.modalOption} onPress={handleEditProfile}>
               <Ionicons name="person-outline" size={20} color={COLORS.primary} />
               <Text style={styles.modalOptionText}>Edit Profile</Text>
               <Ionicons name="chevron-forward" size={20} color="#ccc" />
             </TouchableOpacity>
-            
             <TouchableOpacity 
               style={[styles.modalOption, styles.logoutModalOption]} 
               onPress={() => {
@@ -626,5 +704,86 @@ const styles = {
   versionText: {
     fontSize: 14,
     color: '#999',
+  },
+  editAvatarBtn: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    backgroundColor: COLORS.primary,
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  userDept: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  userDeptSep: {
+    fontSize: 16,
+    color: '#666',
+  },
+  userYearBlock: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  userYearBlockInput: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+    paddingBottom: 5,
+    width: 50,
+  },
+  bioLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  bioInput: {
+    fontSize: 14,
+    color: '#333',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 10,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  bioText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  saveBtn: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+    marginRight: 10,
+  },
+  saveBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  cancelBtn: {
+    backgroundColor: '#eee',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+  },
+  cancelBtnText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 }; 

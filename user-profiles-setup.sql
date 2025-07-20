@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   year_level TEXT NOT NULL,
   block TEXT NOT NULL,
   gender TEXT NOT NULL,
+  bio TEXT,
+  profile_picture_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
