@@ -1,0 +1,152 @@
+import { StyleSheet } from 'react-native';
+import COLORS from '../constants/colors';
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#e0e0e0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  userName: {
+    fontWeight: 'bold',
+    fontSize: 15,
+    color: '#222',
+  },
+  date: {
+    fontSize: 12,
+    color: '#888',
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#19194d',
+    marginTop: 8,
+    marginBottom: 2,
+  },
+  cardDesc: {
+    fontSize: 14,
+    color: '#222',
+    marginBottom: 8,
+  },
+  docPreview: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 8,
+    padding: 8,
+    backgroundColor: '#fafbff',
+  },
+  pdfText: {
+    fontSize: 14,
+    color: '#35359e',
+    fontWeight: 'bold',
+    marginTop: 8,
+  },
+  viewPdfButton: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  viewPdfButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  abstractLabel: {
+    fontWeight: 'bold',
+    fontSize: 15,
+    marginTop: 4,
+    marginBottom: 2,
+    color: '#19194d',
+  },
+  abstractText: {
+    fontSize: 13,
+    color: '#444',
+    marginBottom: 8,
+  },
+  linksContainer: {
+    flexDirection: 'row',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  linkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 15,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 8,
+  },
+  linkText: {
+    marginLeft: 5,
+    fontSize: 13,
+    color: '#35359e',
+  },
+  actionBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    margin: 5,
+    marginTop: 10,
+  },
+  actionBtnCol: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  iconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  counterText: {
+    marginLeft: 6,
+    fontSize: 14,
+    color: '#35359e',
+    fontWeight: 'bold',
+  },
+  actionLabel: {
+    fontSize: 13,
+    color: '#35359e',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  categoryPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#e0e7ff',
+    color: '#35359e',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginTop: 2,
+    marginBottom: 8,
+  },
+});
+
+export default styles; 

@@ -1,15 +1,34 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { FlatList, Image, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import COLORS from '../../constants/colors';
-import { getNotifications } from '../../lib/supabase';
+import { getNotifications, markNotificationAsRead } from '../../lib/supabase';
 
 export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+
+  // Mark all notifications as read when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      const markAllAsRead = async () => {
+        try {
+          if (notifications.some(n => !n.read)) {
+            await Promise.all(notifications.filter(n => !n.read).map(n => markNotificationAsRead(n.id)));
+            // Optionally, refetch notifications to update UI
+            fetchNotifications();
+          }
+        } catch (err) {
+          // Ignore errors
+        }
+      };
+      markAllAsRead();
+    }, [notifications])
+  );
 
   useEffect(() => {
     fetchNotifications();
@@ -117,10 +136,6 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notifications</Text>
-      </View>
-      
       <FlatList
         data={notifications}
         renderItem={renderNotification}

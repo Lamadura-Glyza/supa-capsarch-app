@@ -2,11 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Modal, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Image, Modal, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import PostCard from '../../components/PostCard';
 import COLORS from '../../constants/colors';
 import { useRefresh } from '../../lib/RefreshContext';
-import { bookmarkProject, getCurrentUser, getProjects, likeProject } from '../../lib/supabase';
+import { bookmarkProject, deleteProject, getCurrentUser, getProjects, getUserProfile, getUserProjects, likeProject } from '../../lib/supabase';
 
 export default function HomeScreen() {
   const [projects, setProjects] = useState([]);
@@ -18,11 +19,29 @@ export default function HomeScreen() {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuProject, setMenuProject] = useState(null);
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [profileUserId, setProfileUserId] = useState(null);
+  const [profileData, setProfileData] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileProjects, setProfileProjects] = useState([]);
 
   useEffect(() => {
     fetchProjects();
     getCurrentUser().then(({ data }) => setCurrentUserId(data?.user?.id || null));
   }, [refreshKey]);
+
+  // Poll for projects every 5 seconds
+  useEffect(() => {
+    let mounted = true;
+    const poll = async () => {
+      try {
+        const projectsData = await getProjects();
+        if (mounted) setProjects(projectsData);
+      } catch (err) {}
+    };
+    const interval = setInterval(poll, 5000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
 
   const fetchProjects = async () => {
     try {
@@ -86,8 +105,16 @@ export default function HomeScreen() {
   const handleBookmark = async (projectId) => {
     try {
       await bookmarkProject(projectId);
-      // Always refetch projects for accurate bookmark count
-      fetchProjects();
+      // Optimistically update UI
+      setProjects(prev => prev.map(p =>
+        p.id === projectId
+          ? {
+              ...p,
+              bookmarked_by_user: !p.bookmarked_by_user,
+              bookmark_count: p.bookmarked_by_user ? p.bookmark_count - 1 : p.bookmark_count + 1,
+            }
+          : p
+      ));
     } catch (error) {
       console.error('Error bookmarking project:', error);
     }
@@ -120,14 +147,52 @@ export default function HomeScreen() {
     // TODO: Implement edit navigation
     closeMenu();
   };
-  const handleDelete = () => {
-    // TODO: Implement delete logic
+  const handleDelete = async () => {
+    if (!menuProject) return;
     closeMenu();
+    Alert.alert(
+      'Delete Project',
+      'Are you sure you want to delete this project? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteProject(menuProject.id);
+              setProjects(prev => prev.filter(p => p.id !== menuProject.id));
+            } catch (err) {
+              Alert.alert('Error', 'Failed to delete project.');
+            }
+          },
+        },
+      ]
+    );
   };
   const handleReport = () => {
     // TODO: Implement report logic
     closeMenu();
   };
+
+  const openProfileModal = async (userId) => {
+    setProfileUserId(userId);
+    setProfileModalVisible(true);
+    setProfileLoading(true);
+    const data = await getUserProfile(userId);
+    setProfileData(data);
+    const projects = await getUserProjects(userId);
+    setProfileProjects(projects);
+    setProfileLoading(false);
+  };
+  const closeProfileModal = () => {
+    setProfileModalVisible(false);
+    setProfileUserId(null);
+    setProfileData(null);
+    setProfileProjects([]);
+  };
+
+  const modalWidth = Math.min(Dimensions.get('window').width * 0.95, 600);
 
   if (loading) {
     return (
@@ -215,136 +280,93 @@ export default function HomeScreen() {
           </View>
         ) : (
           projects.map(project => (
-            <View key={project.id} style={styles.card}>
-              {/* Kebab Menu */}
-              <TouchableOpacity style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }} onPress={() => openMenu(project)}>
-                <Ionicons name="ellipsis-vertical" size={22} color="#888" />
-              </TouchableOpacity>
-              {/* User Info */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                <View style={styles.avatar}>
-                  {project.user_profiles?.profile_picture_url ? (
-                    <Image 
-                      source={{ uri: project.user_profiles.profile_picture_url }} 
-                      style={styles.avatarImage}
-                    />
-                  ) : (
-                    <Ionicons name="person" size={20} color="#35359e" />
-                  )}
-                </View>
-                <View style={{ marginLeft: 8 }}>
-                  <Text style={styles.userName}>
-                    {project.user_profiles?.full_name || (project.user_id ? `User ${project.user_id.substring(0, 8)}...` : 'Anonymous User')}
-                  </Text>
-                  <Text style={styles.date}>{formatDate(project.created_at)}</Text>
-                </View>
-              </View>
-              
-              {/* Title & Description */}
-              <Text style={styles.cardTitle}>{project.title}</Text>
-              <Text style={styles.cardDesc}>
-                {project.title_description || project.abstract.substring(0, 100) + '...'}
-              </Text>
-              
-              {/* PDF Preview */}
-              <View style={styles.docPreview}>
-                <Ionicons name="document" size={48} color="#35359e" />
-                <Text style={styles.pdfText}>PDF Document</Text>
-                <TouchableOpacity 
-                  style={styles.viewPdfButton}
-                  onPress={() => {}}
-                >
-                  <Text style={styles.viewPdfButtonText}>View PDF</Text>
-                </TouchableOpacity>
-              </View>
-              
-              {/* Abstract */}
-              <Text style={styles.abstractLabel}>Abstract</Text>
-              <Text style={styles.abstractText}>{project.abstract}</Text>
-              
-              {/* Links */}
-              <View style={styles.linksContainer}>
-                <TouchableOpacity 
-                  style={styles.linkButton}
-                  onPress={() => console.log('Source code:', project.source_code)}
-                >
-                  <Ionicons name="logo-github" size={16} color="#35359e" />
-                  <Text style={styles.linkText}>Source Code</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.linkButton}
-                  onPress={() => console.log('Video:', project.video_link)}
-                >
-                  <Ionicons name="logo-youtube" size={16} color="#ff0000" />
-                  <Text style={styles.linkText}>Video</Text>
-                </TouchableOpacity>
-              </View>
-              
-              {/* Action Bar */}
-              <View style={styles.actionBar}>
-                {/* Like */}
-                <View style={styles.actionBtnCol}>
-                  <View style={styles.iconRow}>
-                    <TouchableOpacity onPress={() => handleLike(project.id)}>
-                      <Ionicons 
-                        name={project.liked_by_user ? 'heart' : 'heart-outline'} 
-                        size={22} 
-                        color={project.liked_by_user ? '#ff6b6b' : '#35359e'} 
-                      />
-                    </TouchableOpacity>
-                    <Text style={styles.counterText}>{project.like_count || 0}</Text>
-                  </View>
-                  <Text style={styles.actionLabel}>Like</Text>
-                </View>
-                {/* Comment */}
-                <View style={styles.actionBtnCol}>
-                  <View style={styles.iconRow}>
-                    <TouchableOpacity onPress={() => handleComment(project.id)}>
-                      <Ionicons name="chatbubble-outline" size={22} color="#35359e" />
-                    </TouchableOpacity>
-                    <Text style={styles.counterText}>{project.comment_count || 0}</Text>
-                  </View>
-                  <Text style={styles.actionLabel}>Comment</Text>
-                </View>
-                {/* Bookmark */}
-                <View style={styles.actionBtnCol}>
-                  <View style={styles.iconRow}>
-                    <TouchableOpacity onPress={() => handleBookmark(project.id)}>
-                      <Ionicons 
-                        name={project.bookmarked_by_user ? 'bookmark' : 'bookmark-outline'} 
-                        size={22} 
-                        color={project.bookmarked_by_user ? '#35359e' : '#35359e'} 
-                      />
-                    </TouchableOpacity>
-                    <Text style={styles.counterText}>{project.bookmark_count || 0}</Text>
-                  </View>
-                  <Text style={styles.actionLabel}>Bookmark</Text>
-                </View>
-              </View>
-            </View>
+            <PostCard
+              key={project.id}
+              project={project}
+              currentUserId={currentUserId}
+              onLike={() => handleLike(project.id)}
+              onBookmark={() => handleBookmark(project.id)}
+              onComment={() => handleComment(project.id)}
+              onShare={() => handleShare(project)}
+              onMenu={() => openMenu(project)}
+              onProfile={userId => openProfileModal(userId)}
+              onPdf={() => {}}
+              menuVisible={menuVisible}
+              menuProject={menuProject}
+              closeMenu={closeMenu}
+              handleEdit={handleEdit}
+              handleDelete={handleDelete}
+              handleReport={handleReport}
+            />
           ))
         )}
         </ScrollView>
-        {/* Kebab Menu Modal */}
-        <Modal
-          visible={menuVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={closeMenu}
-        >
-          <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={closeMenu} />
-          <View style={styles.menuContainer}>
-            {menuProject && currentUserId === menuProject.user_id ? (
-              <>
-                <TouchableOpacity style={styles.menuItem} onPress={handleEdit}><Text style={styles.menuItemText}>Edit</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.menuItem} onPress={handleDelete}><Text style={styles.menuItemText}>Delete</Text></TouchableOpacity>
-              </>
-            ) : (
-              <TouchableOpacity style={styles.menuItem} onPress={handleReport}><Text style={styles.menuItemText}>Report</Text></TouchableOpacity>
-            )}
-          </View>
-        </Modal>
       </View>
+      <Modal
+        visible={profileModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeProfileModal}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 0, width: modalWidth, maxHeight: '90%', position: 'relative' }}>
+            {/* X Close Button */}
+            <TouchableOpacity onPress={closeProfileModal} style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, padding: 8 }}>
+              <Ionicons name="close" size={28} color="#35359e" />
+            </TouchableOpacity>
+            {/* Profile Info (frozen) */}
+            <View style={{ alignItems: 'center', padding: 20, paddingBottom: 0 }}>
+              {profileLoading ? (
+                <ActivityIndicator size="large" color={COLORS.primary} />
+              ) : profileData ? (
+                <>
+                  <Image source={{ uri: profileData.profile_picture_url || 'https://via.placeholder.com/150' }} style={{ width: 90, height: 90, borderRadius: 45, marginBottom: 8 }} />
+                  <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 2 }}>{profileData.full_name}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>BSIT</Text>
+                    <Text style={{ fontSize: 16, color: '#666' }}> – </Text>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>{profileData.year_level || '4'}</Text>
+                    <Text style={{ fontSize: 16, color: '#666' }}> </Text>
+                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>{profileData.block || 'A'}</Text>
+                  </View>
+                  <Text style={{ fontSize: 16, color: '#333', fontWeight: '500', textAlign: 'center', marginBottom: 8 }}>{profileData.gender || 'Not specified'}</Text>
+                  <Text style={{ fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 10 }}>{profileData.bio || 'No Bio'}</Text>
+                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#35359e', marginBottom: 8, textAlign: 'center', alignSelf: 'center' }}>Uploaded Projects</Text>
+                </>
+              ) : (
+                <Text style={{ color: '#888' }}>Profile not found.</Text>
+              )}
+            </View>
+            {/* Projects List (scrollable) */}
+            <ScrollView style={{ maxHeight: 320, paddingHorizontal: 20 }} contentContainerStyle={{ paddingBottom: 20 }}>
+              {profileProjects.length === 0 && !profileLoading ? (
+                <Text style={{ color: '#888', marginBottom: 16, textAlign: 'center' }}>No uploaded projects yet.</Text>
+              ) : (
+                profileProjects.map(project => (
+                  <PostCard
+                    key={project.id}
+                    project={project}
+                    currentUserId={currentUserId}
+                    onLike={() => {}}
+                    onBookmark={() => {}}
+                    onComment={() => {}}
+                    onShare={() => {}}
+                    onMenu={() => {}}
+                    onProfile={() => {}}
+                    onPdf={() => {}}
+                    menuVisible={false}
+                    menuProject={null}
+                    closeMenu={() => {}}
+                    handleEdit={() => {}}
+                    handleDelete={() => {}}
+                    handleReport={() => {}}
+                  />
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -420,138 +442,6 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#e0e0e0', // Placeholder for avatar
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarImage: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-  },
-  userName: {
-    fontWeight: 'bold',
-    fontSize: 15,
-    color: '#222',
-  },
-  date: {
-    fontSize: 12,
-    color: '#888',
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#19194d',
-    marginTop: 8,
-    marginBottom: 2,
-  },
-  cardSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    fontStyle: 'italic',
-    marginBottom: 4,
-  },
-  cardDesc: {
-    fontSize: 14,
-    color: '#222',
-    marginBottom: 8,
-  },
-  docPreview: {
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 8,
-    padding: 8,
-    backgroundColor: '#fafbff',
-  },
-  pdfText: {
-    fontSize: 14,
-    color: '#35359e',
-    fontWeight: 'bold',
-    marginTop: 8,
-  },
-  viewPdfButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 8,
-    marginTop: 10,
-  },
-  viewPdfButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  abstractLabel: {
-    fontWeight: 'bold',
-    fontSize: 15,
-    marginTop: 4,
-    marginBottom: 2,
-    color: '#19194d',
-  },
-  abstractText: {
-    fontSize: 13,
-    color: '#444',
-    marginBottom: 8,
-  },
-  linksContainer: {
-    flexDirection: 'row',
-    marginTop: 8,
-    marginBottom: 8,
-  },
-  linkButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 15,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
-  },
-  linkText: {
-    marginLeft: 5,
-    fontSize: 13,
-    color: '#35359e',
-  },
-  actionBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'flex-end',
-    margin: 5,
-    marginTop: 10,
-  },
-  actionBtn: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    padding: 10,
-  },
-  actionIcon: {
-    width: 22,
-    height: 22,
-    tintColor: '#35359e',
-  },
-  actionText: {
-    fontSize: 13,
-    color: '#35359e',
-    fontWeight: '600',
   },
   emptyContainer: {
     flex: 1,

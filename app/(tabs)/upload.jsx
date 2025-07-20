@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,6 +17,7 @@ export default function UploadScreen() {
   const [agreed, setAgreed] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [category, setCategory] = useState('');
   const { triggerRefresh } = useRefresh();
 
   // PDF upload logic
@@ -85,6 +87,10 @@ export default function UploadScreen() {
       newErrors.pdf = 'PDF file is required';
     }
 
+    if (!category) {
+      newErrors.category = 'Please select a project category';
+    }
+
     if (!agreed) {
       newErrors.agreed = 'You must agree to the terms and conditions';
     }
@@ -118,6 +124,7 @@ export default function UploadScreen() {
         sourceCode: sourceCode.trim(),
         videoLink: videoLink.trim(),
         pdf: pdf,
+        category: category,
       };
 
       await uploadProject(projectData);
@@ -141,6 +148,8 @@ export default function UploadScreen() {
               setPdf(null);
               setAgreed(false);
               setErrors({});
+              // Navigate to Profile tab so the new project appears immediately
+              router.replace('/profile');
             },
           },
         ]
@@ -202,6 +211,26 @@ export default function UploadScreen() {
         numberOfLines={4}
       />
       {errors.abstract && <Text style={styles.errorText}>{errors.abstract}</Text>}
+
+      {/* Category Selection */}
+      <Text style={styles.label}>Project Category *</Text>
+      <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+        <TouchableOpacity
+          style={{ flexDirection: 'row', alignItems: 'center', marginRight: 20 }}
+          onPress={() => setCategory('Mobile Application')}
+        >
+          <Ionicons name={category === 'Mobile Application' ? 'radio-button-on' : 'radio-button-off'} size={22} color="#35359e" />
+          <Text style={{ marginLeft: 6, fontSize: 16 }}>Mobile Application</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{ flexDirection: 'row', alignItems: 'center' }}
+          onPress={() => setCategory('Web Application')}
+        >
+          <Ionicons name={category === 'Web Application' ? 'radio-button-on' : 'radio-button-off'} size={22} color="#35359e" />
+          <Text style={{ marginLeft: 6, fontSize: 16 }}>Web Application</Text>
+        </TouchableOpacity>
+      </View>
+      {errors.category && <Text style={styles.errorText}>{errors.category}</Text>}
 
       {/* Source Code Link */}
       <Text style={styles.label}>Source Code Link *</Text>
@@ -303,9 +332,8 @@ export default function UploadScreen() {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Upload Project</Text>
-      </View>
+      {/* Remove the custom header View and its contents (the one with styles.header and headerTitle) from the Upload tab.
+          The rest of the layout (form, etc.) should remain unchanged. */}
 
       {/* Content */}
       {renderFormTab()}

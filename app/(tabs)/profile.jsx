@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -18,13 +18,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SceneMap, TabBar, TabView } from 'react-native-tab-view';
+import PostCard from '../../components/PostCard';
 import COLORS from '../../constants/colors';
-import { getUserProfile, signOut } from '../../lib/supabase';
+import { bookmarkProject, deleteProject, getCurrentUser, getUserBookmarkedProjects, getUserProfile, getUserProjects, likeProject, signOut } from '../../lib/supabase';
 
 const { width } = Dimensions.get('window');
 const DEFAULT_AVATAR = 'https://ui-avatars.com/api/?name=User&background=4A90E2&color=fff&size=120';
 
 export default function ProfileScreen() {
+  const { user_id } = useLocalSearchParams();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -36,66 +38,107 @@ export default function ProfileScreen() {
   const [editBlock, setEditBlock] = useState('');
   const [editAvatar, setEditAvatar] = useState(DEFAULT_AVATAR);
   const [index, setIndex] = useState(0);
-  const [routes] = useState([
+  const [routes, setRoutes] = useState([
     { key: 'projects', title: 'Project' },
     { key: 'bookmarks', title: 'Bookmark' },
   ]);
-
-  // Placeholder data for stats and projects
-  const [stats, setStats] = useState({
-    projects: 3, // TODO: fetch from Supabase
-    bookmarks: 2 // TODO: fetch from Supabase
-  });
-
-  const [userProjects] = useState([
-    {
-      id: 1,
-      title: 'Capstone Archive',
-      description: 'A Digital Platform for Storing and Sharing Capstone Projects of Consolatrix College of Toledo City.',
-      date: 'February 14, 2005',
-      pdfPreview: 'https://via.placeholder.com/60x80/4A90E2/FFFFFF?text=PDF'
-    }
-  ]);
-
-  const [bookmarkedProjects] = useState([
-    {
-      id: 1,
-      title: 'Sample Bookmarked Project',
-      description: 'This is a sample bookmarked project description.',
-      date: 'January 15, 2005',
-      pdfPreview: 'https://via.placeholder.com/60x80/4A90E2/FFFFFF?text=PDF'
-    }
-  ]);
+  const [userProjects, setUserProjects] = useState([]);
+  const [bookmarkedProjects, setBookmarkedProjects] = useState([]);
+  const [stats, setStats] = useState({ projects: 0, bookmarks: 0 });
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [isOwnProfile, setIsOwnProfile] = useState(true);
+  // Add kebab menu state to ProfileScreen
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [menuProject, setMenuProject] = useState(null);
+  const openMenu = (project) => { setMenuProject(project); setMenuVisible(true); };
+  const closeMenu = () => { setMenuVisible(false); setMenuProject(null); };
+  const handleEdit = () => { closeMenu(); /* TODO: Implement edit navigation */ };
+  const handleDelete = async () => {
+    if (!menuProject) return;
+    closeMenu();
+    Alert.alert(
+      'Delete Project',
+      'Are you sure you want to delete this project? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteProject(menuProject.id);
+              setUserProjects(prev => prev.filter(p => p.id !== menuProject.id));
+              setBookmarkedProjects(prev => prev.filter(p => p.id !== menuProject.id));
+            } catch (err) {
+              Alert.alert('Error', 'Failed to delete project.');
+            }
+          },
+        },
+      ]
+    );
+  };
+  const handleReport = () => { closeMenu(); /* TODO: Implement report logic */ };
 
   useEffect(() => {
-    fetchProfile();
+    getCurrentUser().then(({ data }) => setCurrentUserId(data?.user?.id || null));
   }, []);
 
-  // Refresh profile data when screen comes into focus (e.g., returning from EditProfile)
+  useEffect(() => {
+    if (currentUserId !== null) {
+      fetchProfile();
+    }
+  }, [user_id, currentUserId]);
+
   useFocusEffect(
     useCallback(() => {
-      fetchProfile();
-    }, [])
+      if (currentUserId !== null) {
+        fetchProfile();
+      }
+    }, [user_id, currentUserId])
   );
+
+  // Update routes state to include counters in tab titles
+  useEffect(() => {
+    setRoutes([
+      { key: 'projects', title: `Projects (${stats.projects})` },
+      { key: 'bookmarks', title: `Bookmarks (${stats.bookmarks})` },
+    ]);
+  }, [stats.projects, stats.bookmarks]);
 
   const fetchProfile = async () => {
     try {
       setLoading(true);
       setError(null);
-      const profileData = await getUserProfile();
-      console.log('Fetched profile data:', profileData); // Debug log
+      const viewingOwn = !user_id || user_id === currentUserId;
+      setIsOwnProfile(viewingOwn);
+      const profileId = viewingOwn ? currentUserId : user_id;
+      console.log('Profile ID used for fetch:', profileId);
+      if (!profileId) {
+        setLoading(false);
+        return;
+      }
+      const profileData = await getUserProfile(profileId);
       if (!profileData) {
-        setError('Profile not found. Please contact support or try logging out and back in.');
+        setError('Profile not found.');
       } else {
-        console.log('Profile picture URL:', profileData.profile_picture_url); // Debug log
         setProfile(profileData);
         setEditBio(profileData.bio || '');
         setEditYear(profileData.year_level || '');
         setEditBlock(profileData.block || '');
         setEditAvatar(profileData.profile_picture_url || DEFAULT_AVATAR);
+        // Fetch projects and bookmarks
+        const projects = await getUserProjects(profileId);
+        console.log('Fetched user projects:', projects);
+        setUserProjects(projects);
+        let bookmarks = [];
+        if (viewingOwn) {
+          bookmarks = await getUserBookmarkedProjects(profileId);
+          console.log('Fetched user bookmarks:', bookmarks);
+        }
+        setBookmarkedProjects(bookmarks);
+        setStats({ projects: projects.length, bookmarks: bookmarks.length });
       }
     } catch (err) {
-      console.error('Error fetching profile:', err); // Debug log
       setError('Failed to load profile. Please try again.');
     } finally {
       setLoading(false);
@@ -167,79 +210,113 @@ export default function ProfileScreen() {
     />
   );
 
-  const ProjectTab = () => (
-    <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
-      {userProjects.map((project) => (
-        <View key={project.id} style={styles.projectCard}>
-          <View style={styles.projectHeader}>
-            <View style={styles.projectUserInfo}>
-              <Image
-                source={{ uri: 'https://via.placeholder.com/40x40/4A90E2/FFFFFF?text=JD' }}
-                style={styles.projectUserAvatar}
-              />
-              <View style={styles.projectUserDetails}>
-                <Text style={styles.projectUserName}>
-                  {profile?.full_name || 'Juan Dela Cruz'}
-                </Text>
-                <Text style={styles.projectUserSection}>
-                  {profile?.block || 'BSIT-4 A'}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.projectDate}>{project.date}</Text>
-          </View>
-          
-          <Text style={styles.projectTitle}>{project.title}</Text>
-          <Text style={styles.projectDescription}>{project.description}</Text>
-          
-          <View style={styles.projectPreview}>
-            <Image
-              source={{ uri: project.pdfPreview }}
-              style={styles.pdfPreview}
-              resizeMode="cover"
-            />
-          </View>
-        </View>
-      ))}
-    </ScrollView>
-  );
+  const ProjectTab = () => {
+    if (userProjects.length === 0) {
+      return <Text style={{ color: '#888', textAlign: 'center', marginTop: 20 }}>No uploaded projects yet.</Text>;
+    }
+    const handleLike = async (projectId) => {
+      await likeProject(projectId);
+      setUserProjects(prev => prev.map(p =>
+        p.id === projectId
+          ? {
+              ...p,
+              liked_by_user: !p.liked_by_user,
+              like_count: p.liked_by_user ? p.like_count - 1 : p.like_count + 1,
+            }
+          : p
+      ));
+    };
+    const handleBookmark = async (projectId) => {
+      await bookmarkProject(projectId);
+      setUserProjects(prev => prev.map(p =>
+        p.id === projectId
+          ? {
+              ...p,
+              bookmarked_by_user: !p.bookmarked_by_user,
+              bookmark_count: p.bookmarked_by_user ? p.bookmark_count - 1 : p.bookmark_count + 1,
+            }
+          : p
+      ));
+    };
+    return (
+      <ScrollView style={[styles.tabContent, { flex: 1 }]} showsVerticalScrollIndicator={false}>
+        {userProjects.map(project => (
+          <PostCard
+            key={project.id}
+            project={project}
+            currentUserId={currentUserId}
+            onLike={() => handleLike(project.id)}
+            onBookmark={() => handleBookmark(project.id)}
+            onComment={() => router.push({ pathname: '/CommentScreen', params: { projectId: project.id } })}
+            onShare={() => {}}
+            onMenu={() => openMenu(project)}
+            onProfile={userId => router.push({ pathname: '/profile', params: { user_id: userId } })}
+            onPdf={() => {}}
+            menuVisible={menuVisible}
+            menuProject={menuProject}
+            closeMenu={closeMenu}
+            handleEdit={handleEdit}
+            handleDelete={handleDelete}
+            handleReport={handleReport}
+          />
+        ))}
+      </ScrollView>
+    );
+  };
 
-  const BookmarkTab = () => (
-    <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
-      {bookmarkedProjects.map((project) => (
-        <View key={project.id} style={styles.projectCard}>
-          <View style={styles.projectHeader}>
-            <View style={styles.projectUserInfo}>
-              <Image
-                source={{ uri: 'https://via.placeholder.com/40x40/4A90E2/FFFFFF?text=JD' }}
-                style={styles.projectUserAvatar}
-              />
-              <View style={styles.projectUserDetails}>
-                <Text style={styles.projectUserName}>
-                  {profile?.full_name || 'Juan Dela Cruz'}
-                </Text>
-                <Text style={styles.projectUserSection}>
-                  {profile?.block || 'BSIT-4 A'}
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.projectDate}>{project.date}</Text>
-          </View>
-          
-          <Text style={styles.projectTitle}>{project.title}</Text>
-          <Text style={styles.projectDescription}>{project.description}</Text>
-          
-          <View style={styles.projectPreview}>
-            <Image
-              source={{ uri: project.pdfPreview }}
-              style={styles.pdfPreview}
-              resizeMode="cover"
-            />
-          </View>
-        </View>
-      ))}
-    </ScrollView>
-  );
+  const BookmarkTab = () => {
+    if (bookmarkedProjects.length === 0) {
+      return <Text style={{ color: '#888', textAlign: 'center', marginTop: 20 }}>No bookmarked projects yet.</Text>;
+    }
+    const handleLike = async (projectId) => {
+      await likeProject(projectId);
+      setBookmarkedProjects(prev => prev.map(p =>
+        p.id === projectId
+          ? {
+              ...p,
+              liked_by_user: !p.liked_by_user,
+              like_count: p.liked_by_user ? p.like_count - 1 : p.like_count + 1,
+            }
+          : p
+      ));
+    };
+    const handleBookmark = async (projectId) => {
+      await bookmarkProject(projectId);
+      setBookmarkedProjects(prev => prev.map(p =>
+        p.id === projectId
+          ? {
+              ...p,
+              bookmarked_by_user: !p.bookmarked_by_user,
+              bookmark_count: p.bookmarked_by_user ? p.bookmark_count - 1 : p.bookmark_count + 1,
+            }
+          : p
+      ));
+    };
+    return (
+      <ScrollView style={[styles.tabContent, { flex: 1 }]} showsVerticalScrollIndicator={false}>
+        {bookmarkedProjects.map(project => (
+          <PostCard
+            key={project.id}
+            project={project}
+            currentUserId={currentUserId}
+            onLike={() => handleLike(project.id)}
+            onBookmark={() => handleBookmark(project.id)}
+            onComment={() => router.push({ pathname: '/CommentScreen', params: { projectId: project.id } })}
+            onShare={() => {}}
+            onMenu={() => openMenu(project)}
+            onProfile={userId => router.push({ pathname: '/profile', params: { user_id: userId } })}
+            onPdf={() => {}}
+            menuVisible={menuVisible}
+            menuProject={menuProject}
+            closeMenu={closeMenu}
+            handleEdit={handleEdit}
+            handleDelete={handleDelete}
+            handleReport={handleReport}
+          />
+        ))}
+      </ScrollView>
+    );
+  };
 
   const renderScene = SceneMap({
     projects: ProjectTab,
@@ -311,18 +388,13 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Profile</Text>
-        </View>
+      <View style={{ flex: 1 }}>
         <TouchableOpacity 
-          style={styles.settingsButton}
+          style={{ position: 'absolute', top: 16, right: 16, zIndex: 10, padding: 8 }}
           onPress={() => setSettingsModalVisible(true)}
         >
-          <Ionicons name="settings-outline" size={24} color="#fff" />
+          <Ionicons name="settings-outline" size={28} color="#35359e" />
         </TouchableOpacity>
-      </View>
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Profile Section */}
         <View style={styles.profileSection}>
           {/* Profile Picture with Edit Button */}
@@ -389,18 +461,6 @@ export default function ProfileScreen() {
               <Text style={styles.bioText}>{profile?.bio || 'No Bio'}</Text>
             )}
           </View>
-          {/* Project and Bookmark Counters */}
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.projects}</Text>
-              <Text style={styles.statLabel}>Projects</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{stats.bookmarks}</Text>
-              <Text style={styles.statLabel}>Bookmarks</Text>
-            </View>
-          </View>
           {/* Edit Mode Buttons */}
           {editMode && (
             <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 16 }}>
@@ -414,16 +474,15 @@ export default function ProfileScreen() {
           )}
         </View>
         {/* Tab View */}
-        <View style={styles.tabContainer}>
-          <TabView
-            navigationState={{ index, routes }}
-            renderScene={renderScene}
-            onIndexChange={setIndex}
-            initialLayout={{ width }}
-            renderTabBar={renderTabBar}
-          />
-        </View>
-      </ScrollView>
+        <TabView
+          style={{ flex: 1 }}
+          navigationState={{ index, routes }}
+          renderScene={renderScene}
+          onIndexChange={setIndex}
+          initialLayout={{ width }}
+          renderTabBar={renderTabBar}
+        />
+      </View>
       {/* Settings Modal */}
       <Modal
         visible={settingsModalVisible}
@@ -484,7 +543,6 @@ const styles = {
     justifyContent: 'center',
     flex: 1,
   },
-
   headerTitle: {
     color: '#fff',
     fontSize: 20,
@@ -539,52 +597,54 @@ const styles = {
   },
   profileSection: {
     alignItems: 'center',
-    paddingVertical: 30,
+    paddingVertical: 16, // reduced from 30
     backgroundColor: '#fff',
-    marginBottom: 20,
+    marginBottom: 10, // reduced from 20
   },
   profilePicture: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    marginBottom: 15,
+    width: 90, // reduced from 120
+    height: 90, // reduced from 120
+    borderRadius: 45, // reduced from 60
+    marginBottom: 8, // reduced from 15
   },
   userName: {
-    fontSize: 24,
+    fontSize: 20, // reduced from 24
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 5,
+    marginBottom: 2, // reduced from 5
   },
   userSection: {
-    fontSize: 16,
+    fontSize: 14, // reduced from 16
     color: '#666',
-    marginBottom: 10,
+    marginBottom: 6, // reduced from 10
   },
   userBio: {
-    fontSize: 14,
+    fontSize: 13, // reduced from 14
     color: '#666',
     textAlign: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16, // reduced from 20
+    marginBottom: 6, // add margin for compactness
   },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
-    paddingHorizontal: 20,
-    marginTop: 20,
+    paddingHorizontal: 10, // reduced from 20
+    marginTop: 10, // reduced from 20
+    marginBottom: 0, // add for compactness
   },
   statItem: {
     alignItems: 'center',
   },
   statNumber: {
-    fontSize: 20,
+    fontSize: 16, // reduced from 20
     fontWeight: 'bold',
     color: COLORS.primary,
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 12, // reduced from 14
     color: '#666',
-    marginTop: 5,
+    marginTop: 2, // reduced from 5
   },
   statDivider: {
     width: 1,
@@ -815,5 +875,147 @@ const styles = {
     color: '#333',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  actionBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 10,
+    paddingHorizontal: 10,
+  },
+  actionBtnCol: {
+    alignItems: 'center',
+  },
+  iconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  counterText: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 5,
+  },
+  actionLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 5,
+  },
+  pdfText: {
+    fontSize: 14,
+    color: '#35359e',
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  viewPdfButtonText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    textDecorationLine: 'underline',
+    marginTop: 5,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#eee',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 20,
+  },
+  date: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+  cardDesc: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 10,
+  },
+  docPreview: {
+    width: '100%',
+    height: 100,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  abstractLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  abstractText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 10,
+  },
+  linksContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 10,
+  },
+  linkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e0e0e0',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+  },
+  linkText: {
+    fontSize: 14,
+    color: '#35359e',
+    marginLeft: 5,
+  },
+  // New styles for kebab menu
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  menuContainer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  menuItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+  },
+  menuItemText: {
+    fontSize: 16,
+    color: '#333',
   },
 }; 

@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { addProjectComment, getProjectComments } from '../lib/supabase';
 
 export default function CommentScreen() {
@@ -64,44 +66,47 @@ export default function CommentScreen() {
   );
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={80}
-    >
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={28} color="#23235b" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Comments</Text>
-        <View style={{ width: 28 }} />
-      </View>
-      <FlatList
-        ref={flatListRef}
-        data={comments}
-        renderItem={renderComment}
-        keyExtractor={item => item.id.toString()}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          loading ? <Text style={styles.loadingText}>Loading...</Text> : <Text style={styles.emptyText}>No comments yet.</Text>
-        }
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-      />
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          placeholder="Add a comment..."
-          value={newComment}
-          onChangeText={setNewComment}
-          editable={!submitting}
-          onSubmitEditing={handleAddComment}
-          returnKeyType="send"
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="dark" backgroundColor="#f5f5f5" />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={80}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={28} color="#23235b" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Comments</Text>
+          <View style={{ width: 28 }} />
+        </View>
+        <FlatList
+          ref={flatListRef}
+          data={comments}
+          renderItem={renderComment}
+          keyExtractor={item => item.id.toString()}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            loading ? <Text style={styles.loadingText}>Loading...</Text> : <Text style={styles.emptyText}>No comments yet.</Text>
+          }
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
         />
-        <TouchableOpacity style={styles.sendBtn} onPress={handleAddComment} disabled={submitting || !newComment.trim()}>
-          <Ionicons name="send" size={24} color={submitting || !newComment.trim() ? '#ccc' : '#35359e'} />
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.input}
+            placeholder="Add a comment..."
+            value={newComment}
+            onChangeText={setNewComment}
+            editable={!submitting}
+            onSubmitEditing={handleAddComment}
+            returnKeyType="send"
+          />
+          <TouchableOpacity style={styles.sendBtn} onPress={handleAddComment} disabled={submitting || !newComment.trim()}>
+            <Ionicons name="send" size={24} color={submitting || !newComment.trim() ? '#ccc' : '#35359e'} />
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
