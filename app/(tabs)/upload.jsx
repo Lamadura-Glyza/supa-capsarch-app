@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Modal, Platform, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRefresh } from '../../lib/RefreshContext';
 import { uploadProject } from '../../lib/supabase';
@@ -18,6 +18,7 @@ export default function UploadScreen() {
   const [isUploading, setIsUploading] = useState(false);
   const [errors, setErrors] = useState({});
   const [category, setCategory] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const { triggerRefresh } = useRefresh();
 
   // PDF upload logic
@@ -128,32 +129,9 @@ export default function UploadScreen() {
       };
 
       await uploadProject(projectData);
-      
-      // Trigger refresh of Home tab
       triggerRefresh();
-      
-      Alert.alert(
-        'Success!',
-        'Your project has been uploaded successfully.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Reset form
-              setTitle('');
-              setTitleDescription('');
-              setAbstract('');
-              setSourceCode('');
-              setVideoLink('');
-              setPdf(null);
-              setAgreed(false);
-              setErrors({});
-              // Navigate to Profile tab so the new project appears immediately
-              router.replace('/profile');
-            },
-          },
-        ]
-      );
+      setShowSuccessModal(true);
+      // Do not reset form or navigate yet; wait for modal action
     } catch (error) {
       console.error('Upload error:', error);
       Alert.alert('Upload Failed', 'Failed to upload project. Please try again.');
@@ -337,6 +315,69 @@ export default function UploadScreen() {
 
       {/* Content */}
       {renderFormTab()}
+      {/* Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSuccessModal(false)}
+      >
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.15)' }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 20, padding: 28, alignItems: 'center', width: 320, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 8 }}>
+            <View style={{ backgroundColor: '#e6f0ff', borderRadius: 50, padding: 16, marginBottom: 16 }}>
+              <Ionicons name="time-outline" size={40} color="#35359e" />
+            </View>
+            <Text style={{ fontWeight: 'bold', fontSize: 22, color: '#222', marginBottom: 8, textAlign: 'center' }}>Project Submitted!</Text>
+            <Text style={{ color: '#666', fontSize: 15, textAlign: 'center', marginBottom: 8 }}>
+              Your Project has been submitted and is{"\n"}
+              pending admin approval. We'll notify you{"\n"}
+              once it's approved.
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 18, marginTop: 2 }}>
+              <Ionicons name="time-outline" size={18} color="#888" style={{ marginRight: 4 }} />
+              <Text style={{ color: '#888', fontSize: 13 }}>Estimated review time: 24-48 hours</Text>
+            </View>
+            <TouchableOpacity
+              style={{ backgroundColor: '#35359e', borderRadius: 8, paddingVertical: 12, paddingHorizontal: 24, width: '100%', marginBottom: 10 }}
+              onPress={() => {
+                setShowSuccessModal(false);
+                // Reset form
+                setTitle('');
+                setTitleDescription('');
+                setAbstract('');
+                setSourceCode('');
+                setVideoLink('');
+                setPdf(null);
+                setAgreed(false);
+                setErrors({});
+                // Navigate to Project Status screen
+                router.replace('/ProjectStatus');
+              }}
+            >
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16, textAlign: 'center' }}>View Project Status</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ backgroundColor: '#ccc', borderRadius: 8, paddingVertical: 12, paddingHorizontal: 24, width: '100%' }}
+              onPress={() => {
+                setShowSuccessModal(false);
+                // Reset form
+                setTitle('');
+                setTitleDescription('');
+                setAbstract('');
+                setSourceCode('');
+                setVideoLink('');
+                setPdf(null);
+                setAgreed(false);
+                setErrors({});
+                // Navigate to home
+                router.replace('/home');
+              }}
+            >
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16, textAlign: 'center' }}>Back to Home</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

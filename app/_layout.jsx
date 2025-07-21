@@ -1,13 +1,20 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import SplashScreen from '../components/SplashScreen';
 import { RefreshProvider } from '../lib/RefreshContext';
-import { supabase } from '../lib/supabase';
+import { getUserProfile, supabase } from '../lib/supabase';
+
+console.log("EXPO_PUBLIC_SUPABASE_URL:", process.env.EXPO_PUBLIC_SUPABASE_URL);
+console.log("EXPO_PUBLIC_SUPABASE_ANON_KEY:", process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
+console.log("EXPO_PUBLIC_SUPABASE_SERVICE_KEY:", process.env.EXPO_PUBLIC_SUPABASE_SERVICE_KEY);
 
 export default function RootLayout() {
   const [showSplash, setShowSplash] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [role, setRole] = useState(null);
+  const [checkingRole, setCheckingRole] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     let mounted = true;
@@ -41,11 +48,19 @@ export default function RootLayout() {
           console.log('Setting isLoggedIn to:', newLoginState, 'for event:', event);
           setIsLoggedIn(newLoginState);
           setIsLoading(false);
+          // Always re-check role after any auth state change
+          if (newLoginState) {
+            setCheckingRole(true);
+            getUserProfile().then(profile => {
+              setRole(profile?.role);
+              setCheckingRole(false);
+            }).catch(() => setCheckingRole(false));
+          } else {
+            setRole(null);
+          }
         }
       }
     );
-
-
 
     checkAuth();
 
@@ -56,22 +71,33 @@ export default function RootLayout() {
     };
   }, []);
 
+  // Check user role after login
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    setCheckingRole(true);
+    getUserProfile().then(profile => {
+      setRole(profile?.role);
+      setCheckingRole(false);
+    }).catch(() => setCheckingRole(false));
+  }, [isLoggedIn]);
+
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 2000);
     return () => clearTimeout(timer);
   }, []);
 
-  console.log('Render state - showSplash:', showSplash, 'isLoading:', isLoading, 'isLoggedIn:', isLoggedIn);
-  
-  if (showSplash || isLoading) {
+  if (showSplash || isLoading || checkingRole || (isLoggedIn && role === null)) {
     return <SplashScreen />;
   }
 
+  // Route based on role
   return (
     <RefreshProvider>
       <Stack screenOptions={{ headerShown: false }}>
         {!isLoggedIn ? (
           <Stack.Screen name="(auth)" />
+        ) : role === 'admin' ? (
+          <Stack.Screen name="(adminTabs)" />
         ) : (
           <Stack.Screen name="(tabs)" />
         )}

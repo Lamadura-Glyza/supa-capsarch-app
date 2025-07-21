@@ -21,6 +21,8 @@ export default function EditProfileScreen() {
   const [block, setBlock] = useState('A');
   const [bio, setBio] = useState('');
   const [profilePictureUrl, setProfilePictureUrl] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [role, setRole] = useState('user');
 
   // Load existing profile data
   useEffect(() => {
@@ -31,6 +33,8 @@ export default function EditProfileScreen() {
     try {
       setLoading(true);
       const profile = await getUserProfile();
+      setProfile(profile);
+      setRole(profile?.role || 'user');
       
       if (profile) {
         setFullName(profile.full_name || '');
@@ -208,7 +212,13 @@ export default function EditProfileScreen() {
       <View style={styles.card}>
         {/* Header */}
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={() => {
+            if (role !== 'admin') {
+              router.replace('/(tabs)/profile');
+            } else {
+              router.back();
+            }
+          }}>
             <Ionicons name="arrow-back" size={28} color="#23235b" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Edit Profile</Text>
@@ -244,57 +254,61 @@ export default function EditProfileScreen() {
             <Text style={styles.radioLabel}>Female</Text>
           </TouchableOpacity>
         </View>
-        
-        {/* Year Level and Block */}
-        <View style={styles.row}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Year Level</Text>
-            <View style={styles.pickerWrapper}>
-              <Picker
-                selectedValue={yearLevel}
-                onValueChange={setYearLevel}
-                style={styles.picker}
-                dropdownIconColor="#23235b"
-                mode="dropdown"
-              >
-                <Picker.Item label="1st Year" value="1" />
-                <Picker.Item label="2nd Year" value="2" />
-                <Picker.Item label="3rd Year" value="3" />
-                <Picker.Item label="4th Year" value="4" />
-              </Picker>
+        {/* Year Level and Block - only for non-admins */}
+        {role !== 'admin' && (
+          <View style={styles.row}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Year Level</Text>
+              <View style={styles.pickerWrapper}>
+                <Picker
+                  selectedValue={yearLevel}
+                  onValueChange={setYearLevel}
+                  style={styles.picker}
+                  dropdownIconColor="#23235b"
+                  mode="dropdown"
+                >
+                  <Picker.Item label="1st Year" value="1" />
+                  <Picker.Item label="2nd Year" value="2" />
+                  <Picker.Item label="3rd Year" value="3" />
+                  <Picker.Item label="4th Year" value="4" />
+                </Picker>
+              </View>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.label}>Block</Text>
+              <View style={styles.pickerWrapper}>
+                <Picker
+                  selectedValue={block}
+                  onValueChange={setBlock}
+                  style={styles.picker}
+                  dropdownIconColor="#23235b"
+                  mode="dropdown"
+                >
+                  <Picker.Item label="Block A" value="A" />
+                  <Picker.Item label="Block B" value="B" />
+                  <Picker.Item label="Block C" value="C" />
+                  <Picker.Item label="Block D" value="D" />
+                  <Picker.Item label="Block E" value="E" />
+                </Picker>
+              </View>
             </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Block</Text>
-            <View style={styles.pickerWrapper}>
-              <Picker
-                selectedValue={block}
-                onValueChange={setBlock}
-                style={styles.picker}
-                dropdownIconColor="#23235b"
-                mode="dropdown"
-              >
-                <Picker.Item label="Block A" value="A" />
-                <Picker.Item label="Block B" value="B" />
-                <Picker.Item label="Block C" value="C" />
-                <Picker.Item label="Block D" value="D" />
-                <Picker.Item label="Block E" value="E" />
-              </Picker>
-            </View>
-          </View>
-        </View>
-        
-        {/* Bio */}
-        <Text style={styles.label}>Bio</Text>
-        <TextInput
-          style={styles.bioInput}
-          value={bio}
-          onChangeText={setBio}
-          placeholder="Write something about yourself..."
-          multiline
-          numberOfLines={3}
-          textAlignVertical="top"
-        />
+        )}
+        {/* Bio - only for non-admins */}
+        {role !== 'admin' && (
+          <>
+            <Text style={styles.label}>Bio</Text>
+            <TextInput
+              style={styles.bioInput}
+              value={bio}
+              onChangeText={setBio}
+              placeholder="Write something about yourself..."
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </>
+        )}
         
         {/* Save Button */}
         <TouchableOpacity 

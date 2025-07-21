@@ -1,9 +1,9 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs, useFocusEffect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import COLORS from '../../constants/colors';
-import { getUnreadNotificationCount } from '../../lib/supabase';
+import { getUnreadNotificationCount, getUserProfile } from '../../lib/supabase';
 
 function NotificationTabIcon({ color, focused }) {
   const [unread, setUnread] = useState(0);
@@ -50,6 +50,27 @@ function NotificationTabIcon({ color, focused }) {
 }
 
 export default function TabsLayout() {
+  const [isAdmin, setIsAdmin] = React.useState(false);
+  const [checkingRole, setCheckingRole] = React.useState(true);
+
+  // Check admin status on mount and when tab is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      let mounted = true;
+      setCheckingRole(true);
+      getUserProfile().then(profile => {
+        if (mounted) setIsAdmin(profile?.role === 'admin');
+      }).finally(() => {
+        if (mounted) setCheckingRole(false);
+      });
+      return () => { mounted = false; };
+    }, [])
+  );
+
+  if (checkingRole) {
+    return <ActivityIndicator style={{ flex: 1, alignSelf: 'center', marginTop: 100 }} size="large" color={COLORS.primary} />;
+  }
+
   return (
     <Tabs
       screenOptions={({ route }) => ({

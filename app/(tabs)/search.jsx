@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Image, Keyboard, ScrollView, Share, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Keyboard, Linking, RefreshControl, ScrollView, Share, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PostCard from '../../components/PostCard';
+import UserProfileModal from '../../components/UserProfileModal';
 import { bookmarkProject, deleteProject, getCurrentUser, getProjects, likeProject, searchProjectsByTitle, searchUsersByName } from '../../lib/supabase';
 
 export default function SearchScreen() {
@@ -17,6 +18,9 @@ export default function SearchScreen() {
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuProject, setMenuProject] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('Mobile Application');
+  const [refreshing, setRefreshing] = useState(false);
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [profileUserId, setProfileUserId] = useState(null);
 
   React.useEffect(() => {
     getCurrentUser().then(({ data }) => setCurrentUserId(data?.user?.id || null));
@@ -135,9 +139,44 @@ export default function SearchScreen() {
     }
   };
 
+  const handleProfilePress = (userId) => {
+    if (userId === currentUserId) {
+      router.push('/(tabs)/profile');
+    } else {
+      setProfileUserId(userId);
+      setProfileModalVisible(true);
+    }
+  };
+
+  // Only show approved projects (or user's own projects)
   const filteredProjects = projectResults.filter(p =>
-    (p.category || '').trim().toLowerCase() === selectedCategory.trim().toLowerCase()
+    ((p.category || '').trim().toLowerCase() === selectedCategory.trim().toLowerCase()) &&
+    (p.status === 'approved' || p.user_id === currentUserId)
   );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      if (!query.trim()) {
+        const projects = await getProjects();
+        setProjectResults(projects);
+        setUserResults([]);
+      } else {
+        const [users, projects] = await Promise.all([
+          searchUsersByName(query.trim()),
+          searchProjectsByTitle(query.trim()),
+        ]);
+        setUserResults(users);
+        setProjectResults(projects);
+      }
+    } catch (err) {
+      setUserResults([]);
+      setProjectResults([]);
+    } finally {
+      setRefreshing(false);
+      setSearched(true);
+    }
+  };
 
   const renderUser = (user) => (
     <TouchableOpacity
@@ -166,8 +205,8 @@ export default function SearchScreen() {
       onComment={() => handleComment(project.id)}
       onShare={() => handleShare(project)}
       onMenu={() => openMenu(project)}
-      onProfile={userId => router.push({ pathname: '/profile', params: { user_id: userId } })}
-      onPdf={() => {}}
+      onProfile={handleProfilePress}
+      onPdf={() => project.pdf_url && Linking.openURL(project.pdf_url)}
       menuVisible={menuVisible}
       menuProject={menuProject}
       closeMenu={closeMenu}
@@ -222,7 +261,18 @@ export default function SearchScreen() {
         </View>
       )}
       {!loading && searched && (
-        <ScrollView style={{ flex: 1, paddingHorizontal: 16 }} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          style={{ flex: 1, paddingHorizontal: 16 }}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#35359e"
+              colors={["#35359e"]}
+            />
+          }
+        >
           <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#35359e', marginBottom: 8 }}>Users</Text>
           {userResults.length === 0 && <Text style={{ color: '#888', marginBottom: 16 }}>No users found</Text>}
           {userResults.map(renderUser)}
@@ -234,6 +284,12 @@ export default function SearchScreen() {
           )}
         </ScrollView>
       )}
+      <UserProfileModal
+        userId={profileUserId}
+        visible={profileModalVisible}
+        onClose={() => setProfileModalVisible(false)}
+        currentUserId={currentUserId}
+      />
     </SafeAreaView>
   );
 } 

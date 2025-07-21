@@ -4,7 +4,51 @@ import React, { useEffect, useState } from 'react';
 import { FlatList, Image, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import COLORS from '../../constants/colors';
-import { getNotifications, markNotificationAsRead } from '../../lib/supabase';
+import { getNotifications, getProjectStatusNotifications, markNotificationAsRead } from '../../lib/supabase';
+
+function ProjectStatusNotifications() {
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getProjectStatusNotifications()
+      .then(setNotifications)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <Text>Loading project status notifications...</Text>;
+
+  if (notifications.length === 0) {
+    return null;
+  }
+
+  return (
+    <FlatList
+      data={notifications}
+      keyExtractor={item => item.id}
+      renderItem={({ item }) => (
+        <View style={{
+          backgroundColor: item.read ? '#f5f5f5' : '#e0e7ff',
+          padding: 14,
+          borderRadius: 10,
+          marginBottom: 10,
+        }}>
+          <Text style={{ fontWeight: 'bold' }}>
+            {item.projects?.title || 'Your project'}
+          </Text>
+          <Text>
+            {item.status === 'approved'
+              ? 'was approved!'
+              : `was disapproved. Reason: ${item.notes || 'No reason provided.'}`}
+          </Text>
+          <Text style={{ color: '#888', fontSize: 12, marginTop: 4 }}>
+            {new Date(item.created_at).toLocaleString()}
+          </Text>
+        </View>
+      )}
+    />
+  );
+}
 
 export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState([]);
@@ -20,7 +64,7 @@ export default function NotificationsScreen() {
           if (notifications.some(n => !n.read)) {
             await Promise.all(notifications.filter(n => !n.read).map(n => markNotificationAsRead(n.id)));
             // Optionally, refetch notifications to update UI
-            fetchNotifications();
+            // fetchNotifications(); // This line is commented out or removed
           }
         } catch (err) {
           // Ignore errors
@@ -124,9 +168,6 @@ export default function NotificationsScreen() {
   if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Notifications</Text>
-        </View>
         <View style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading notifications...</Text>
         </View>
@@ -136,6 +177,9 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+        <ProjectStatusNotifications />
+      </View>
       <FlatList
         data={notifications}
         renderItem={renderNotification}

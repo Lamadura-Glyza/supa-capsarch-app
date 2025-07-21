@@ -2,12 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Image, Modal, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Image, Linking, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PostCard from '../../components/PostCard';
+import UserProfileModal from '../../components/UserProfileModal';
 import COLORS from '../../constants/colors';
 import { useRefresh } from '../../lib/RefreshContext';
-import { bookmarkProject, deleteProject, getCurrentUser, getProjects, getUserProfile, getUserProjects, likeProject } from '../../lib/supabase';
+import { bookmarkProject, deleteProject, getCurrentUser, getProjects, likeProject } from '../../lib/supabase';
 
 export default function HomeScreen() {
   const [projects, setProjects] = useState([]);
@@ -47,6 +48,12 @@ export default function HomeScreen() {
     try {
       setLoading(true);
       setError(null);
+      const { data: { user } } = await getCurrentUser();
+      if (!user) {
+        setProjects([]);
+        setLoading(false);
+        return;
+      }
       const projectsData = await getProjects();
       setProjects(projectsData);
     } catch (err) {
@@ -60,6 +67,12 @@ export default function HomeScreen() {
   const onRefresh = async () => {
     setRefreshing(true);
     try {
+      const { data: { user } } = await getCurrentUser();
+      if (!user) {
+        setProjects([]);
+        setRefreshing(false);
+        return;
+      }
       const projectsData = await getProjects();
       setProjects(projectsData);
       setError(null);
@@ -175,21 +188,13 @@ export default function HomeScreen() {
     closeMenu();
   };
 
-  const openProfileModal = async (userId) => {
-    setProfileUserId(userId);
-    setProfileModalVisible(true);
-    setProfileLoading(true);
-    const data = await getUserProfile(userId);
-    setProfileData(data);
-    const projects = await getUserProjects(userId);
-    setProfileProjects(projects);
-    setProfileLoading(false);
-  };
-  const closeProfileModal = () => {
-    setProfileModalVisible(false);
-    setProfileUserId(null);
-    setProfileData(null);
-    setProfileProjects([]);
+  const handleProfilePress = (userId) => {
+    if (userId === currentUserId) {
+      router.push('/(tabs)/profile');
+    } else {
+      setProfileUserId(userId);
+      setProfileModalVisible(true);
+    }
   };
 
   const modalWidth = Math.min(Dimensions.get('window').width * 0.95, 600);
@@ -289,8 +294,8 @@ export default function HomeScreen() {
               onComment={() => handleComment(project.id)}
               onShare={() => handleShare(project)}
               onMenu={() => openMenu(project)}
-              onProfile={userId => openProfileModal(userId)}
-              onPdf={() => {}}
+              onProfile={handleProfilePress}
+              onPdf={() => Linking.openURL(project.pdf_url)}
               menuVisible={menuVisible}
               menuProject={menuProject}
               closeMenu={closeMenu}
@@ -302,71 +307,12 @@ export default function HomeScreen() {
         )}
         </ScrollView>
       </View>
-      <Modal
+      <UserProfileModal
+        userId={profileUserId}
         visible={profileModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={closeProfileModal}
-      >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
-          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 0, width: modalWidth, maxHeight: '90%', position: 'relative' }}>
-            {/* X Close Button */}
-            <TouchableOpacity onPress={closeProfileModal} style={{ position: 'absolute', top: 12, right: 12, zIndex: 10, padding: 8 }}>
-              <Ionicons name="close" size={28} color="#35359e" />
-            </TouchableOpacity>
-            {/* Profile Info (frozen) */}
-            <View style={{ alignItems: 'center', padding: 20, paddingBottom: 0 }}>
-              {profileLoading ? (
-                <ActivityIndicator size="large" color={COLORS.primary} />
-              ) : profileData ? (
-                <>
-                  <Image source={{ uri: profileData.profile_picture_url || 'https://via.placeholder.com/150' }} style={{ width: 90, height: 90, borderRadius: 45, marginBottom: 8 }} />
-                  <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#333', marginBottom: 2 }}>{profileData.full_name}</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>BSIT</Text>
-                    <Text style={{ fontSize: 16, color: '#666' }}> – </Text>
-                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>{profileData.year_level || '4'}</Text>
-                    <Text style={{ fontSize: 16, color: '#666' }}> </Text>
-                    <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>{profileData.block || 'A'}</Text>
-                  </View>
-                  <Text style={{ fontSize: 16, color: '#333', fontWeight: '500', textAlign: 'center', marginBottom: 8 }}>{profileData.gender || 'Not specified'}</Text>
-                  <Text style={{ fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 10 }}>{profileData.bio || 'No Bio'}</Text>
-                  <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#35359e', marginBottom: 8, textAlign: 'center', alignSelf: 'center' }}>Uploaded Projects</Text>
-                </>
-              ) : (
-                <Text style={{ color: '#888' }}>Profile not found.</Text>
-              )}
-            </View>
-            {/* Projects List (scrollable) */}
-            <ScrollView style={{ maxHeight: 320, paddingHorizontal: 20 }} contentContainerStyle={{ paddingBottom: 20 }}>
-              {profileProjects.length === 0 && !profileLoading ? (
-                <Text style={{ color: '#888', marginBottom: 16, textAlign: 'center' }}>No uploaded projects yet.</Text>
-              ) : (
-                profileProjects.map(project => (
-                  <PostCard
-                    key={project.id}
-                    project={project}
-                    currentUserId={currentUserId}
-                    onLike={() => {}}
-                    onBookmark={() => {}}
-                    onComment={() => {}}
-                    onShare={() => {}}
-                    onMenu={() => {}}
-                    onProfile={() => {}}
-                    onPdf={() => {}}
-                    menuVisible={false}
-                    menuProject={null}
-                    closeMenu={() => {}}
-                    handleEdit={() => {}}
-                    handleDelete={() => {}}
-                    handleReport={() => {}}
-                  />
-                ))
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setProfileModalVisible(false)}
+        currentUserId={currentUserId}
+      />
     </SafeAreaView>
   );
 }

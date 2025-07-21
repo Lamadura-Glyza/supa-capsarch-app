@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { Image, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Linking, Text, TouchableOpacity, View } from 'react-native';
 import styles from './postCardStyles';
 
 export default function PostCard({
@@ -19,6 +19,7 @@ export default function PostCard({
   handleEdit,
   handleDelete,
   handleReport,
+  hideEdit, // new prop
 }) {
   return (
     <View style={styles.card}>
@@ -41,10 +42,7 @@ export default function PostCard({
           zIndex: 100,
         }}>
           {currentUserId === project.user_id ? (
-            <>
-              <TouchableOpacity style={{ padding: 10 }} onPress={handleEdit}><Text>Edit</Text></TouchableOpacity>
-              <TouchableOpacity style={{ padding: 10 }} onPress={handleDelete}><Text style={{ color: 'red' }}>Delete</Text></TouchableOpacity>
-            </>
+            <TouchableOpacity style={{ padding: 10 }} onPress={handleDelete}><Text style={{ color: 'red' }}>Delete</Text></TouchableOpacity>
           ) : (
             <TouchableOpacity style={{ padding: 10 }} onPress={handleReport}><Text>Report</Text></TouchableOpacity>
           )}
@@ -92,11 +90,19 @@ export default function PostCard({
       )}
       {/* Links */}
       <View style={styles.linksContainer}>
-        <TouchableOpacity style={styles.linkButton} onPress={() => onShare(project)}>
+        <TouchableOpacity
+          style={styles.linkButton}
+          onPress={() => project.source_code && Linking.openURL(project.source_code)}
+          disabled={!project.source_code}
+        >
           <Ionicons name="logo-github" size={16} color="#35359e" />
           <Text style={styles.linkText}>Source Code</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.linkButton} onPress={() => onShare(project)}>
+        <TouchableOpacity
+          style={styles.linkButton}
+          onPress={() => project.video_link && Linking.openURL(project.video_link)}
+          disabled={!project.video_link}
+        >
           <Ionicons name="logo-youtube" size={16} color="#ff0000" />
           <Text style={styles.linkText}>Video</Text>
         </TouchableOpacity>

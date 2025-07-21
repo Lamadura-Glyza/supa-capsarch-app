@@ -8,8 +8,11 @@ import {
   Alert,
   Dimensions,
   Image,
+  Linking // <-- add this import
+  ,
   Modal,
   Platform,
+  RefreshControl,
   ScrollView,
   Text,
   TextInput,
@@ -47,6 +50,7 @@ export default function ProfileScreen() {
   const [stats, setStats] = useState({ projects: 0, bookmarks: 0 });
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isOwnProfile, setIsOwnProfile] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   // Add kebab menu state to ProfileScreen
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuProject, setMenuProject] = useState(null);
@@ -79,6 +83,12 @@ export default function ProfileScreen() {
   };
   const handleReport = () => { closeMenu(); /* TODO: Implement report logic */ };
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchProfile();
+    setRefreshing(false);
+  }, [currentUserId]);
+
   useEffect(() => {
     getCurrentUser().then(({ data }) => setCurrentUserId(data?.user?.id || null));
   }, []);
@@ -91,9 +101,7 @@ export default function ProfileScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (currentUserId !== null) {
-        fetchProfile();
-      }
+      // Automatic refresh on tab focus has been removed.
     }, [user_id, currentUserId])
   );
 
@@ -128,15 +136,16 @@ export default function ProfileScreen() {
         setEditAvatar(profileData.profile_picture_url || DEFAULT_AVATAR);
         // Fetch projects and bookmarks
         const projects = await getUserProjects(profileId);
-        console.log('Fetched user projects:', projects);
-        setUserProjects(projects);
+        const approvedProjects = projects.filter(p => p.status === 'approved');
+        console.log('Fetched user projects:', approvedProjects);
+        setUserProjects(approvedProjects);
         let bookmarks = [];
         if (viewingOwn) {
           bookmarks = await getUserBookmarkedProjects(profileId);
           console.log('Fetched user bookmarks:', bookmarks);
         }
         setBookmarkedProjects(bookmarks);
-        setStats({ projects: projects.length, bookmarks: bookmarks.length });
+        setStats({ projects: approvedProjects.length, bookmarks: bookmarks.length });
       }
     } catch (err) {
       setError('Failed to load profile. Please try again.');
@@ -210,37 +219,36 @@ export default function ProfileScreen() {
     />
   );
 
+  const refreshProjectsAndBookmarks = async () => {
+    const projects = await getUserProjects(currentUserId);
+    const approvedProjects = projects.filter(p => p.status === 'approved');
+    setUserProjects(approvedProjects);
+    let bookmarks = [];
+    if (isOwnProfile) {
+      bookmarks = await getUserBookmarkedProjects(currentUserId);
+      setBookmarkedProjects(bookmarks);
+    }
+    setStats({ projects: approvedProjects.length, bookmarks: bookmarks.length });
+  };
+
   const ProjectTab = () => {
-    if (userProjects.length === 0) {
+    // Only show approved projects
+    const approvedProjects = userProjects.filter(p => p.status === 'approved');
+
+    if (approvedProjects.length === 0) {
       return <Text style={{ color: '#888', textAlign: 'center', marginTop: 20 }}>No uploaded projects yet.</Text>;
     }
     const handleLike = async (projectId) => {
       await likeProject(projectId);
-      setUserProjects(prev => prev.map(p =>
-        p.id === projectId
-          ? {
-              ...p,
-              liked_by_user: !p.liked_by_user,
-              like_count: p.liked_by_user ? p.like_count - 1 : p.like_count + 1,
-            }
-          : p
-      ));
+      await refreshProjectsAndBookmarks();
     };
     const handleBookmark = async (projectId) => {
       await bookmarkProject(projectId);
-      setUserProjects(prev => prev.map(p =>
-        p.id === projectId
-          ? {
-              ...p,
-              bookmarked_by_user: !p.bookmarked_by_user,
-              bookmark_count: p.bookmarked_by_user ? p.bookmark_count - 1 : p.bookmark_count + 1,
-            }
-          : p
-      ));
+      await refreshProjectsAndBookmarks();
     };
     return (
       <ScrollView style={[styles.tabContent, { flex: 1 }]} showsVerticalScrollIndicator={false}>
-        {userProjects.map(project => (
+        {approvedProjects.map(project => (
           <PostCard
             key={project.id}
             project={project}
@@ -251,7 +259,7 @@ export default function ProfileScreen() {
             onShare={() => {}}
             onMenu={() => openMenu(project)}
             onProfile={userId => router.push({ pathname: '/profile', params: { user_id: userId } })}
-            onPdf={() => {}}
+            onPdf={() => project.pdf_url && Linking.openURL(project.pdf_url)}
             menuVisible={menuVisible}
             menuProject={menuProject}
             closeMenu={closeMenu}
@@ -270,27 +278,11 @@ export default function ProfileScreen() {
     }
     const handleLike = async (projectId) => {
       await likeProject(projectId);
-      setBookmarkedProjects(prev => prev.map(p =>
-        p.id === projectId
-          ? {
-              ...p,
-              liked_by_user: !p.liked_by_user,
-              like_count: p.liked_by_user ? p.like_count - 1 : p.like_count + 1,
-            }
-          : p
-      ));
+      await refreshProjectsAndBookmarks();
     };
     const handleBookmark = async (projectId) => {
       await bookmarkProject(projectId);
-      setBookmarkedProjects(prev => prev.map(p =>
-        p.id === projectId
-          ? {
-              ...p,
-              bookmarked_by_user: !p.bookmarked_by_user,
-              bookmark_count: p.bookmarked_by_user ? p.bookmark_count - 1 : p.bookmark_count + 1,
-            }
-          : p
-      ));
+      await refreshProjectsAndBookmarks();
     };
     return (
       <ScrollView style={[styles.tabContent, { flex: 1 }]} showsVerticalScrollIndicator={false}>
@@ -305,7 +297,7 @@ export default function ProfileScreen() {
             onShare={() => {}}
             onMenu={() => openMenu(project)}
             onProfile={userId => router.push({ pathname: '/profile', params: { user_id: userId } })}
-            onPdf={() => {}}
+            onPdf={() => project.pdf_url && Linking.openURL(project.pdf_url)}
             menuVisible={menuVisible}
             menuProject={menuProject}
             closeMenu={closeMenu}
@@ -327,14 +319,6 @@ export default function ProfileScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" />
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Profile</Text>
-          </View>
-          <View style={styles.settingsButton}>
-            <Ionicons name="settings-outline" size={24} color="transparent" />
-          </View>
-        </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
           <Text style={styles.loadingText}>Loading profile...</Text>
@@ -395,93 +379,101 @@ export default function ProfileScreen() {
         >
           <Ionicons name="settings-outline" size={28} color="#35359e" />
         </TouchableOpacity>
-        {/* Profile Section */}
-        <View style={styles.profileSection}>
-          {/* Profile Picture with Edit Button */}
-          <View style={{ alignItems: 'center', marginBottom: 10 }}>
-            {console.log('Displaying profile picture URL:', profile?.profile_picture_url || DEFAULT_AVATAR)}
-            <Image
-              source={{ uri: profile?.profile_picture_url || DEFAULT_AVATAR }}
-              style={styles.profilePicture}
-            />
-            {editMode && (
-              <TouchableOpacity style={styles.editAvatarBtn} onPress={() => Alert.alert('Edit Avatar', 'Profile picture upload coming soon!')}>
-                <Ionicons name="camera" size={20} color="#fff" />
-              </TouchableOpacity>
-            )}
-          </View>
-          {/* Name */}
-          <Text style={styles.userName}>{profile?.full_name || 'Juan Dela Cruz'}</Text>
-          {/* Department, Year Level, Block */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-            <Text style={styles.userDept}>BSIT</Text>
-            <Text style={styles.userDeptSep}> – </Text>
-            {editMode ? (
-              <TextInput
-                style={styles.userYearBlockInput}
-                value={editYear}
-                onChangeText={setEditYear}
-                placeholder="Year"
-                keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'}
+        
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+          }
+        >
+          {/* Profile Section */}
+          <View style={styles.profileSection}>
+            {/* Profile Picture with Edit Button */}
+            <View style={{ alignItems: 'center', marginBottom: 10 }}>
+              {console.log('Displaying profile picture URL:', profile?.profile_picture_url || DEFAULT_AVATAR)}
+              <Image
+                source={{ uri: profile?.profile_picture_url || DEFAULT_AVATAR }}
+                style={styles.profilePicture}
               />
-            ) : (
-              <Text style={styles.userYearBlock}>{profile?.year_level || '4'}</Text>
-            )}
-            <Text style={styles.userDeptSep}> </Text>
-            {editMode ? (
-              <TextInput
-                style={styles.userYearBlockInput}
-                value={editBlock}
-                onChangeText={setEditBlock}
-                placeholder="Block"
-              />
-            ) : (
-              <Text style={styles.userYearBlock}>{profile?.block || 'A'}</Text>
-            )}
-          </View>
-          
-          {/* Gender Section */}
-          <View style={{ width: '100%', marginBottom: 8, alignItems: 'center' }}>
-            <Text style={styles.genderText}>{profile?.gender || 'Not specified'}</Text>
-          </View>
-          
-          {/* Bio Section */}
-          <View style={{ width: '100%', marginBottom: 16 }}>
-            {editMode ? (
-              <TextInput
-                style={styles.bioInput}
-                value={editBio}
-                onChangeText={setEditBio}
-                placeholder="Write something about yourself..."
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
-            ) : (
-              <Text style={styles.bioText}>{profile?.bio || 'No Bio'}</Text>
-            )}
-          </View>
-          {/* Edit Mode Buttons */}
-          {editMode && (
-            <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 16 }}>
-              <TouchableOpacity style={styles.saveBtn} onPress={handleSaveProfile}>
-                <Text style={styles.saveBtnText}>Save</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelEdit}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
+              {editMode && (
+                <TouchableOpacity style={styles.editAvatarBtn} onPress={() => Alert.alert('Edit Avatar', 'Profile picture upload coming soon!')}>
+                  <Ionicons name="camera" size={20} color="#fff" />
+                </TouchableOpacity>
+              )}
             </View>
-          )}
-        </View>
-        {/* Tab View */}
-        <TabView
-          style={{ flex: 1 }}
-          navigationState={{ index, routes }}
-          renderScene={renderScene}
-          onIndexChange={setIndex}
-          initialLayout={{ width }}
-          renderTabBar={renderTabBar}
-        />
+            {/* Name */}
+            <Text style={styles.userName}>{profile?.full_name || 'Juan Dela Cruz'}</Text>
+            {/* Department, Year Level, Block */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={styles.userDept}>BSIT</Text>
+              <Text style={styles.userDeptSep}> – </Text>
+              {editMode ? (
+                <TextInput
+                  style={styles.userYearBlockInput}
+                  value={editYear}
+                  onChangeText={setEditYear}
+                  placeholder="Year"
+                  keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'}
+                />
+              ) : (
+                <Text style={styles.userYearBlock}>{profile?.year_level || '4'}</Text>
+              )}
+              <Text style={styles.userDeptSep}> </Text>
+              {editMode ? (
+                <TextInput
+                  style={styles.userYearBlockInput}
+                  value={editBlock}
+                  onChangeText={setEditBlock}
+                  placeholder="Block"
+                />
+              ) : (
+                <Text style={styles.userYearBlock}>{profile?.block || 'A'}</Text>
+              )}
+            </View>
+            
+            {/* Gender Section */}
+            <View style={{ width: '100%', marginBottom: 8, alignItems: 'center' }}>
+              <Text style={styles.genderText}>{profile?.gender || 'Not specified'}</Text>
+            </View>
+            
+            {/* Bio Section */}
+            <View style={{ width: '100%', marginBottom: 16 }}>
+              {editMode ? (
+                <TextInput
+                  style={styles.bioInput}
+                  value={editBio}
+                  onChangeText={setEditBio}
+                  placeholder="Write something about yourself..."
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+              ) : (
+                <Text style={styles.bioText}>{profile?.bio || 'No Bio'}</Text>
+              )}
+            </View>
+            {/* Edit Mode Buttons */}
+            {editMode && (
+              <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 16 }}>
+                <TouchableOpacity style={styles.saveBtn} onPress={handleSaveProfile}>
+                  <Text style={styles.saveBtnText}>Save</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelEdit}>
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+          {/* Tab View */}
+          <TabView
+            style={{ flex: 1 }}
+            navigationState={{ index, routes }}
+            renderScene={renderScene}
+            onIndexChange={setIndex}
+            initialLayout={{ width }}
+            renderTabBar={renderTabBar}
+          />
+        </ScrollView>
       </View>
       {/* Settings Modal */}
       <Modal
@@ -505,6 +497,12 @@ export default function ProfileScreen() {
             <TouchableOpacity style={styles.modalOption} onPress={handleEditProfile}>
               <Ionicons name="person-outline" size={20} color={COLORS.primary} />
               <Text style={styles.modalOptionText}>Edit Profile</Text>
+              <Ionicons name="chevron-forward" size={20} color="#ccc" />
+            </TouchableOpacity>
+            {/* Project Status Button */}
+            <TouchableOpacity style={styles.modalOption} onPress={() => { setSettingsModalVisible(false); router.push('/ProjectStatus'); }}>
+              <Ionicons name="document-text-outline" size={20} color={COLORS.primary} />
+              <Text style={styles.modalOptionText}>Project Status</Text>
               <Ionicons name="chevron-forward" size={20} color="#ccc" />
             </TouchableOpacity>
             <TouchableOpacity 
