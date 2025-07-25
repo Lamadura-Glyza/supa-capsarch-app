@@ -33,8 +33,8 @@ export default function UploadScreen() {
         const file = result.assets[0];
         
         // Check file size (10MB limit)
-        if (file.size && file.size > 10 * 1024 * 1024) {
-          Alert.alert('File Too Large', 'Please select a PDF file smaller than 10MB.');
+        if (file.size && file.size > 5 * 1024 * 1024) {
+          Alert.alert('File Too Large', 'Please select a PDF file smaller than 5MB.');
           return;
         }
 
@@ -62,8 +62,8 @@ export default function UploadScreen() {
 
     if (!titleDescription.trim()) {
       newErrors.titleDescription = 'Project title description is required';
-    } else if (titleDescription.trim().length > 100) {
-      newErrors.titleDescription = 'Project title description must be 100 characters or less';
+    } else if (titleDescription.trim().length > 110) {
+      newErrors.titleDescription = 'Project title description must be 110 characters or less';
     }
 
     if (!abstract.trim()) {
@@ -160,17 +160,17 @@ export default function UploadScreen() {
       <Text style={styles.label}>Project Title Description *</Text>
       <TextInput
         style={[styles.input, errors.titleDescription && styles.inputError]}
-        placeholder="Enter project title description (max 100 characters)"
+        placeholder="Enter project title description"
         placeholderTextColor="#888"
         value={titleDescription}
         onChangeText={(text) => {
           setTitleDescription(text);
           if (errors.titleDescription) setErrors(prev => ({ ...prev, titleDescription: null }));
         }}
-        maxLength={100}
+        maxLength={110}
       />
       <Text style={styles.characterCount}>
-        {titleDescription.length}/100 characters
+        {titleDescription.length}/110 characters
       </Text>
       {errors.titleDescription && <Text style={styles.errorText}>{errors.titleDescription}</Text>}
 
@@ -266,7 +266,7 @@ export default function UploadScreen() {
           <Text style={styles.pdfText}>
             Tap to upload your project PDF{Platform.OS === 'web' ? '' : '\n'}
             <Text style={{ color: '#888', fontSize: 12 }}>
-              {'\n'}Maximum file size: 10MB
+              {'\n'}Maximum file size: 5MB
             </Text>
           </Text>
         )}

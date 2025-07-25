@@ -14,10 +14,16 @@ export default function UserProjectStatusList({ userId }) {
       .finally(() => setLoading(false));
   }, [userId]);
 
-  if (loading) return <ActivityIndicator style={{ marginTop: 40 }} size="large" color="#35359e" />;
+  if (loading) {
+    return <ActivityIndicator style={{ marginTop: 40 }} size="large" color="#35359e" />;
+  }
 
   if (projects.length === 0) {
-    return <Text style={{ textAlign: 'center', marginTop: 40 }}>You have not uploaded any projects yet.</Text>;
+    return (
+      <Text style={{ textAlign: 'center', marginTop: 40 }}>
+        You have not uploaded any projects yet.
+      </Text>
+    );
   }
 
   return (
@@ -25,26 +31,51 @@ export default function UserProjectStatusList({ userId }) {
       data={projects}
       keyExtractor={item => item.id}
       renderItem={({ item }) => (
-        <View style={{
-          backgroundColor: '#fff',
-          borderRadius: 10,
-          padding: 14,
-          marginBottom: 10,
-          borderWidth: 1,
-          borderColor: '#eee'
-        }}>
-          <Text style={{ fontWeight: 'bold', fontSize: 16 }}>{item.title}</Text>
-          <Text>Status: <Text style={{
-            color:
-              item.status === 'approved' ? 'green' :
-              item.status === 'disapproved' ? 'red' :
-              '#888'
-          }}>{item.status || 'pending'}</Text></Text>
-          {item.status === 'disapproved' && item.admin_notes && (
-            <Text style={{ color: '#ff6b6b', marginTop: 4 }}>Reason: {item.admin_notes}</Text>
+        <View
+          style={{
+            backgroundColor: '#fff',
+            borderRadius: 10,
+            padding: 14,
+            marginBottom: 10,
+            borderWidth: 1,
+            borderColor: '#eee',
+          }}
+        >
+          <Text style={{ fontWeight: 'bold', fontSize: 20, color: '#060436' }}>
+            {item.title}
+          </Text>
+
+          {/* ✅ Show description below title */}
+          {item.title_description && (
+            <Text style={{ marginTop: 6, color: '#555', fontSize: 17, fontWeight: '500'}}>
+              {item.title_description}
+            </Text>
+          )}
+
+          <Text style={{ marginTop: 8, fontWeight: '500' }}>
+            Status:{' '}
+            <Text
+              style={{
+                color:
+                  item.status === 'approved'
+                    ? 'green'
+                    : item.status === 'rejected'
+                    ? 'red'
+                    : '#888',
+                    fontWeight: '400'
+              }}
+            >
+              {item.status || 'pending'}
+            </Text>
+          </Text>
+
+          {item.status === 'rejected' && item.admin_notes && (
+            <Text style={{ color: '#35359e', marginTop: 4, fontWeight: '500' }}>
+              Reason: {item.admin_notes}
+            </Text>
           )}
         </View>
       )}
     />
   );
-} 
+}

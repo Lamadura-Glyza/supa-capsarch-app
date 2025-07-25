@@ -9,7 +9,6 @@ export default function PostCard({
   onLike,
   onBookmark,
   onComment,
-  onShare,
   onMenu,
   onProfile,
   onPdf,
@@ -72,7 +71,7 @@ export default function PostCard({
       {/* Title & Description */}
       <Text style={styles.cardTitle}>{project.title}</Text>
       <Text style={styles.cardDesc}>
-        {project.title_description || project.abstract?.substring(0, 100) + '...'}
+        {project.title_description || project.abstract?.substring(0, 110) + '...'}
       </Text>
       {/* PDF Preview */}
       <View style={styles.docPreview}>

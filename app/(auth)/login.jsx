@@ -22,9 +22,6 @@ const Login = () => {
     setLoading(false);
     if (error) {
       setError(error.message);
-    } else {
-      // On success, you may want to update global auth state or navigate
-      router.replace('/(tabs)/home');
     }
   };
 

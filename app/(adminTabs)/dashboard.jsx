@@ -88,6 +88,8 @@ export default function AdminDashboard() {
     setRejectError('');
     try {
       await disapproveProject(rejectingProjectId, rejectNote);
+      // Fetch project to get user_id and title
+      // No notification for rejection
       setPendingProjects(pendingProjects.filter(p => p.id !== rejectingProjectId));
       setShowRejectModal(false);
       setRejectNote('');

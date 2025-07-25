@@ -48,9 +48,18 @@ const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
       
       const { data, error } = await signUpWithEmail(email, password, userMetadata);
       if (error) {
-        setError(error.message);
+        if (
+          error.message &&
+          (error.message.toLowerCase().includes('already registered') ||
+           error.message.toLowerCase().includes('already in use'))
+        ) {
+          setError('This email is already registered. Please use a different email or log in.');
+        } else {
+          setError(error.message);
+        }
       } else if (!data.user) {
-        setError('Check your email to confirm your account before logging in.');
+        setSuccess('');
+        setError('If this email is already registered, please log in or check your email for a confirmation link.');
       } else {
         setSuccess('Account created successfully! Please check your email to confirm your account, then log in.');
         setError('');

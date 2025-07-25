@@ -106,6 +106,8 @@ export default function NotificationsScreen() {
         return <Ionicons name="chatbubble" size={20} color="#4A90E2" />;
       case 'bookmark':
         return <Ionicons name="bookmark" size={20} color="#FFD700" />;
+      case 'rejection':
+        return <Ionicons name="alert-circle" size={20} color="#ff4136" />;
       default:
         return <Ionicons name="notifications" size={20} color="#35359e" />;
     }
@@ -121,6 +123,8 @@ export default function NotificationsScreen() {
         return `${senderName} commented on your project "${projectTitle}"`;
       case 'bookmark':
         return `${senderName} bookmarked your project "${projectTitle}"`;
+      case 'rejection':
+        return notification.message || 'Your project was rejected.';
       default:
         return notification.message || 'New notification';
     }
@@ -131,29 +135,53 @@ export default function NotificationsScreen() {
     console.log('Notification pressed:', notification);
   };
 
-  const renderNotification = ({ item }) => (
-    <TouchableOpacity 
-      style={[styles.notificationCard, !item.read && styles.unreadNotification]}
-      onPress={() => handleNotificationPress(item)}
-    >
-      <View style={styles.notificationIcon}>
-        {item.sender?.profile_picture_url ? (
-          <Image source={{ uri: item.sender.profile_picture_url }} style={{ width: 32, height: 32, borderRadius: 16, marginRight: 8 }} />
-        ) : (
-          getNotificationIcon(item.type)
-        )}
-      </View>
-      <View style={styles.notificationContent}>
-        <Text style={styles.notificationText}>
-          {getNotificationText(item)}
-        </Text>
-        <Text style={styles.notificationTime}>
-          {new Date(item.created_at).toLocaleDateString()} • {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Text>
-      </View>
-      {!item.read && <View style={styles.unreadDot} />}
-    </TouchableOpacity>
-  );
+  const renderNotification = ({ item }) => {
+    if (item.type === 'rejection') {
+      // Custom rendering for rejection notifications
+      // Extract info from the message if needed, but ideally store all in notification or join
+      // We'll use item.projects?.title, item.sender?.full_name, item.created_at, and item.message (for note)
+      return (
+        <View style={[styles.notificationCard, !item.read && styles.unreadNotification]}> 
+          <View style={styles.notificationIcon}>
+            {getNotificationIcon(item.type)}
+          </View>
+          <View style={styles.notificationContent}>
+            <Text style={{ fontWeight: 'bold', fontSize: 15, color: '#35359e' }}>{item.projects?.title || 'Project'}</Text>
+            <Text style={{ color: '#333', marginBottom: 2 }}>By: {item.sender?.full_name || 'Uploader'}</Text>
+            <Text style={{ color: '#888', fontSize: 12, marginBottom: 2 }}>
+              Uploaded: {item.projects?.created_at ? new Date(item.projects.created_at).toLocaleDateString() : (item.created_at ? new Date(item.created_at).toLocaleDateString() : 'N/A')}
+            </Text>
+            <Text style={{ color: '#ff4136', marginTop: 4, fontWeight: 'bold' }}>Reason: {item.message}</Text>
+          </View>
+          {!item.read && <View style={styles.unreadDot} />}
+        </View>
+      );
+    }
+    // Default rendering for other types
+    return (
+      <TouchableOpacity 
+        style={[styles.notificationCard, !item.read && styles.unreadNotification]}
+        onPress={() => handleNotificationPress(item)}
+      >
+        <View style={styles.notificationIcon}>
+          {item.sender?.profile_picture_url ? (
+            <Image source={{ uri: item.sender.profile_picture_url }} style={{ width: 32, height: 32, borderRadius: 16, marginRight: 8 }} />
+          ) : (
+            getNotificationIcon(item.type)
+          )}
+        </View>
+        <View style={styles.notificationContent}>
+          <Text style={styles.notificationText}>
+            {getNotificationText(item)}
+          </Text>
+          <Text style={styles.notificationTime}>
+            {new Date(item.created_at).toLocaleDateString()} • {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+        </View>
+        {!item.read && <View style={styles.unreadDot} />}
+      </TouchableOpacity>
+    );
+  };
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
