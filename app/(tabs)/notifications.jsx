@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { FlatList, Image, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -55,6 +55,7 @@ export default function NotificationsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const router = useRouter();
 
   // Mark all notifications as read when screen is focused
   useFocusEffect(
@@ -131,8 +132,13 @@ export default function NotificationsScreen() {
   };
 
   const handleNotificationPress = (notification) => {
-    // TODO: Navigate to the specific project or comment
-    console.log('Notification pressed:', notification);
+    // Navigate to the specific project for like, comment, or bookmark notifications
+    if (["like", "comment", "bookmark"].includes(notification.type) && notification.project_id) {
+      router.push({ pathname: "/ProjectDetails", params: { projectId: notification.project_id } });
+    } else {
+      // For other types (e.g., rejection), do nothing or show a message
+      console.log('Notification pressed:', notification);
+    }
   };
 
   const renderNotification = ({ item }) => {

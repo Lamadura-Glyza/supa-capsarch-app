@@ -36,6 +36,8 @@ export default function HomeScreen() {
     let mounted = true;
     const poll = async () => {
       try {
+        const { data: { user } } = await getCurrentUser();
+        if (!user) return;
         const projectsData = await getProjects();
         if (mounted) setProjects(projectsData);
       } catch (err) {}

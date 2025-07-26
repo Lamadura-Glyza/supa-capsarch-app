@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import COLORS from '../constants/colors';
-import { getProjects } from '../lib/supabase';
+import { bookmarkProject, getCurrentUser, getProjects, likeProject } from '../lib/supabase';
 
 export default function ProjectDetails() {
   const { projectId } = useLocalSearchParams();
@@ -13,15 +13,24 @@ export default function ProjectDetails() {
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   useEffect(() => {
     fetchProject();
+    getCurrentUser().then(({ data }) => setCurrentUserId(data?.user?.id || null));
   }, [projectId]);
 
   const fetchProject = async () => {
     setLoading(true);
     setError(null);
     try {
+      const { data: { user } } = await getCurrentUser();
+      if (!user) {
+        setError('You must be logged in to view this project.');
+        setProject(null);
+        setLoading(false);
+        return;
+      }
       // getProjects returns all, so filter by id
       const projects = await getProjects();
       const found = projects.find(p => p.id == projectId);
@@ -32,6 +41,44 @@ export default function ProjectDetails() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLike = async () => {
+    if (!project) return;
+    
+    try {
+      const result = await likeProject(project.id);
+      // Update the project state to reflect the new like status
+      setProject(prev => ({
+        ...prev,
+        liked_by_user: result.liked,
+        like_count: result.liked ? (prev.like_count || 0) + 1 : Math.max(0, (prev.like_count || 0) - 1)
+      }));
+    } catch (error) {
+      console.error('Error handling like:', error);
+    }
+  };
+
+  const handleBookmark = async () => {
+    if (!project) return;
+    
+    try {
+      const result = await bookmarkProject(project.id);
+      // Update the project state to reflect the new bookmark status
+      setProject(prev => ({
+        ...prev,
+        bookmarked_by_user: result.bookmarked,
+        bookmark_count: result.bookmarked ? (prev.bookmark_count || 0) + 1 : Math.max(0, (prev.bookmark_count || 0) - 1)
+      }));
+    } catch (error) {
+      console.error('Error handling bookmark:', error);
+    }
+  };
+
+  const handleComment = () => {
+    if (!project) return;
+    // Navigate to comment screen or open comment modal
+    router.push(`/CommentScreen?projectId=${project.id}`);
   };
 
   if (loading) {
@@ -101,6 +148,48 @@ export default function ProjectDetails() {
                 <Text style={styles.linkText}>Video</Text>
               </TouchableOpacity>
             ) : null}
+          </View>
+          
+          {/* Action Bar */}
+          <View style={styles.actionBar}>
+            {/* Like */}
+            <View style={styles.actionBtnCol}>
+              <View style={styles.iconRow}>
+                <TouchableOpacity onPress={handleLike}>
+                  <Ionicons
+                    name={project.liked_by_user ? 'heart' : 'heart-outline'}
+                    size={22}
+                    color={project.liked_by_user ? '#ff6b6b' : '#35359e'}
+                  />
+                </TouchableOpacity>
+                <Text style={styles.counterText}>{project.like_count || 0}</Text>
+              </View>
+              <Text style={styles.actionLabel}>Like</Text>
+            </View>
+            {/* Comment */}
+            <View style={styles.actionBtnCol}>
+              <View style={styles.iconRow}>
+                <TouchableOpacity onPress={handleComment}>
+                  <Ionicons name="chatbubble-outline" size={22} color="#35359e" />
+                </TouchableOpacity>
+                <Text style={styles.counterText}>{project.comment_count || 0}</Text>
+              </View>
+              <Text style={styles.actionLabel}>Comment</Text>
+            </View>
+            {/* Bookmark */}
+            <View style={styles.actionBtnCol}>
+              <View style={styles.iconRow}>
+                <TouchableOpacity onPress={handleBookmark}>
+                  <Ionicons
+                    name={project.bookmarked_by_user ? 'bookmark' : 'bookmark-outline'}
+                    size={22}
+                    color={project.bookmarked_by_user ? '#35359e' : '#35359e'}
+                  />
+                </TouchableOpacity>
+                <Text style={styles.counterText}>{project.bookmark_count || 0}</Text>
+              </View>
+              <Text style={styles.actionLabel}>Bookmark</Text>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -205,6 +294,35 @@ const styles = StyleSheet.create({
     marginLeft: 5,
     fontSize: 13,
     color: '#35359e',
+  },
+  actionBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    margin: 5,
+    marginTop: 10,
+  },
+  actionBtnCol: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  iconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  counterText: {
+    marginLeft: 6,
+    fontSize: 14,
+    color: '#35359e',
+    fontWeight: 'bold',
+  },
+  actionLabel: {
+    fontSize: 13,
+    color: '#35359e',
+    fontWeight: '600',
+    marginTop: 2,
   },
   centered: {
     flex: 1,

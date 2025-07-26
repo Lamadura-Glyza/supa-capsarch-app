@@ -3,21 +3,32 @@ import { Tabs, useFocusEffect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import COLORS from '../../constants/colors';
-import { getUnreadNotificationCount, getUserProfile } from '../../lib/supabase';
+import { getCurrentUser, getUnreadNotificationCount, getUserProfile } from '../../lib/supabase';
 
 function NotificationTabIcon({ color, focused }) {
   const [unread, setUnread] = useState(0);
   useFocusEffect(
     React.useCallback(() => {
       let mounted = true;
-      getUnreadNotificationCount().then(count => { if (mounted) setUnread(count); });
+      const fetchUnread = async () => {
+        const { data: { user } } = await getCurrentUser();
+        if (user) {
+          const count = await getUnreadNotificationCount();
+          if (mounted) setUnread(count);
+        }
+      };
+      fetchUnread();
       return () => { mounted = false; };
     }, [])
   );
   useEffect(() => {
     let mounted = true;
-    const poll = () => {
-      getUnreadNotificationCount().then(count => { if (mounted) setUnread(count); });
+    const poll = async () => {
+      const { data: { user } } = await getCurrentUser();
+      if (user) {
+        const count = await getUnreadNotificationCount();
+        if (mounted) setUnread(count);
+      }
     };
     const interval = setInterval(poll, 5000); // 5 seconds
     poll(); // initial fetch

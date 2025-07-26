@@ -38,7 +38,14 @@ export default function EditProfileScreen() {
       
       if (profile) {
         setFullName(profile.full_name || '');
-        setGender(profile.gender || 'Male');
+        // Normalize gender value to 'Male' or 'Female'
+        let normalizedGender = 'Male';
+        if (profile.gender) {
+          const g = profile.gender.trim().toLowerCase();
+          if (g === 'female') normalizedGender = 'Female';
+          else if (g === 'male') normalizedGender = 'Male';
+        }
+        setGender(normalizedGender);
         setYearLevel(profile.year_level || '4');
         setBlock(profile.block || 'A');
         setBio(profile.bio || '');

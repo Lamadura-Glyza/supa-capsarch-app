@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { addProjectComment, getProjectComments } from '../lib/supabase';
 
@@ -52,7 +52,10 @@ export default function CommentScreen() {
     <View style={styles.commentCard}>
       <View style={styles.avatarBox}>
         {item.user_profiles?.profile_picture_url ? (
-          <Ionicons name="person-circle" size={36} color="#35359e" />
+          <Image
+            source={{ uri: item.user_profiles.profile_picture_url }}
+            style={styles.avatarImage}
+          />
         ) : (
           <Ionicons name="person-circle-outline" size={36} color="#bbb" />
         )}
@@ -150,6 +153,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  avatarImage: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#e0e0e0',
   },
   commentContent: {
     flex: 1,

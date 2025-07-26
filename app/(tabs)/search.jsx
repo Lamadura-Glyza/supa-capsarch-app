@@ -29,10 +29,18 @@ export default function SearchScreen() {
   React.useEffect(() => {
     if (!query.trim()) {
       setLoading(true);
-      getProjects().then(projects => {
-        setProjectResults(projects);
-        setSearched(true);
-        setLoading(false);
+      getCurrentUser().then(({ data }) => {
+        if (!data?.user) {
+          setProjectResults([]);
+          setSearched(true);
+          setLoading(false);
+          return;
+        }
+        getProjects().then(projects => {
+          setProjectResults(projects);
+          setSearched(true);
+          setLoading(false);
+        });
       });
     }
   }, [selectedCategory]);
@@ -158,6 +166,14 @@ export default function SearchScreen() {
     setRefreshing(true);
     try {
       if (!query.trim()) {
+        const { data: { user } } = await getCurrentUser();
+        if (!user) {
+          setProjectResults([]);
+          setUserResults([]);
+          setRefreshing(false);
+          setSearched(true);
+          return;
+        }
         const projects = await getProjects();
         setProjectResults(projects);
         setUserResults([]);

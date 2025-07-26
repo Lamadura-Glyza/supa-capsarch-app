@@ -60,23 +60,22 @@ export default function UploadScreen() {
       newErrors.title = 'Project title is required';
     }
 
+    // Project title description: no min/max length
     if (!titleDescription.trim()) {
       newErrors.titleDescription = 'Project title description is required';
-    } else if (titleDescription.trim().length > 110) {
-      newErrors.titleDescription = 'Project title description must be 110 characters or less';
+    }
+    // Remove max length check for titleDescription
+
+    // Abstract: now optional, no min/max length
+    // Remove all checks for abstract
+
+    // Category selection remains required
+    if (!category) {
+      newErrors.category = 'Please select a project category';
     }
 
-    if (!abstract.trim()) {
-      newErrors.abstract = 'Abstract is required';
-    } else if (abstract.trim().length < 50) {
-      newErrors.abstract = 'Abstract must be at least 50 characters long';
-    }
-
-    if (!sourceCode.trim()) {
-      newErrors.sourceCode = 'Source code link is required';
-    } else if (!isValidUrl(sourceCode)) {
-      newErrors.sourceCode = 'Please enter a valid URL';
-    }
+    // Source code link: now optional, no required or URL check
+    // Remove all checks for sourceCode
 
     if (!videoLink.trim()) {
       newErrors.videoLink = 'Video link is required';
@@ -86,10 +85,6 @@ export default function UploadScreen() {
 
     if (!pdf) {
       newErrors.pdf = 'PDF file is required';
-    }
-
-    if (!category) {
-      newErrors.category = 'Please select a project category';
     }
 
     if (!agreed) {
@@ -167,18 +162,18 @@ export default function UploadScreen() {
           setTitleDescription(text);
           if (errors.titleDescription) setErrors(prev => ({ ...prev, titleDescription: null }));
         }}
-        maxLength={110}
+        // maxLength={110} // Removed max length
       />
-      <Text style={styles.characterCount}>
+      {/* <Text style={styles.characterCount}>
         {titleDescription.length}/110 characters
-      </Text>
+      </Text> */}
       {errors.titleDescription && <Text style={styles.errorText}>{errors.titleDescription}</Text>}
 
       {/* Abstract */}
       <Text style={styles.label}>Abstract *</Text>
       <TextInput
         style={[styles.input, styles.textarea, errors.abstract && styles.inputError]}
-        placeholder="Enter project abstract (minimum 50 characters)"
+        placeholder="Enter project abstract"
         placeholderTextColor="#888"
         value={abstract}
         onChangeText={(text) => {
