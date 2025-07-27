@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "supa-capsarch-app",
+    "name": "Capstone Archive",
     "slug": "supa-capsarch-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,7 +16,8 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.venicetolero.supacapsarchapp"
     },
     "web": {
       "bundler": "metro",
@@ -38,6 +39,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "514fbbaf-2280-43f2-b2e3-b8801104e19b"
+      }
     }
   }
 }

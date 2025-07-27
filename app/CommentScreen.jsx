@@ -4,7 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import { FlatList, Image, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { addProjectComment, getProjectComments } from '../lib/supabase';
+import UserProfileModal from '../components/UserProfileModal';
+import { addProjectComment, getCurrentUser, getProjectComments } from '../lib/supabase';
 
 export default function CommentScreen() {
   const { projectId } = useLocalSearchParams();
@@ -13,10 +14,14 @@ export default function CommentScreen() {
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [profileUserId, setProfileUserId] = useState(null);
   const flatListRef = useRef(null);
 
   useEffect(() => {
     fetchComments();
+    getCurrentUser().then(({ data }) => setCurrentUserId(data?.user?.id || null));
   }, [projectId]);
 
   const fetchComments = async () => {
@@ -48,20 +53,33 @@ export default function CommentScreen() {
     }
   };
 
+  const handleProfilePress = (userId) => {
+    if (userId === currentUserId) {
+      router.push('/(tabs)/profile');
+    } else {
+      setProfileUserId(userId);
+      setProfileModalVisible(true);
+    }
+  };
+
   const renderComment = ({ item }) => (
     <View style={styles.commentCard}>
-      <View style={styles.avatarBox}>
-        {item.user_profiles?.profile_picture_url ? (
-          <Image
-            source={{ uri: item.user_profiles.profile_picture_url }}
-            style={styles.avatarImage}
-          />
-        ) : (
-          <Ionicons name="person-circle-outline" size={36} color="#bbb" />
-        )}
-      </View>
+      <TouchableOpacity onPress={() => handleProfilePress(item.user_id)}>
+        <View style={styles.avatarBox}>
+          {item.user_profiles?.profile_picture_url ? (
+            <Image
+              source={{ uri: item.user_profiles.profile_picture_url }}
+              style={styles.avatarImage}
+            />
+          ) : (
+            <Ionicons name="person-circle-outline" size={36} color="#bbb" />
+          )}
+        </View>
+      </TouchableOpacity>
       <View style={styles.commentContent}>
-        <Text style={styles.commentAuthor}>{item.user_profiles?.full_name || 'User'}</Text>
+        <TouchableOpacity onPress={() => handleProfilePress(item.user_id)}>
+          <Text style={styles.commentAuthor}>{item.user_profiles?.full_name || 'User'}</Text>
+        </TouchableOpacity>
         <Text style={styles.commentText}>{item.comment}</Text>
         <Text style={styles.commentTime}>{new Date(item.created_at).toLocaleString()}</Text>
       </View>
@@ -100,15 +118,24 @@ export default function CommentScreen() {
             placeholder="Add a comment..."
             value={newComment}
             onChangeText={setNewComment}
-            editable={!submitting}
-            onSubmitEditing={handleAddComment}
-            returnKeyType="send"
+            multiline
+            maxLength={500}
           />
-          <TouchableOpacity style={styles.sendBtn} onPress={handleAddComment} disabled={submitting || !newComment.trim()}>
-            <Ionicons name="send" size={24} color={submitting || !newComment.trim() ? '#ccc' : '#35359e'} />
+          <TouchableOpacity
+            style={[styles.sendButton, submitting && styles.sendButtonDisabled]}
+            onPress={handleAddComment}
+            disabled={submitting || !newComment.trim()}
+          >
+            <Ionicons name="send" size={20} color={submitting || !newComment.trim() ? '#ccc' : '#fff'} />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+      <UserProfileModal
+        userId={profileUserId}
+        visible={profileModalVisible}
+        onClose={() => setProfileModalVisible(false)}
+        currentUserId={currentUserId}
+      />
     </SafeAreaView>
   );
 }
@@ -195,8 +222,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginRight: 8,
   },
-  sendBtn: {
+  sendButton: {
     padding: 8,
+    backgroundColor: '#35359e',
+    borderRadius: 20,
+  },
+  sendButtonDisabled: {
+    backgroundColor: '#ccc',
   },
   loadingText: {
     textAlign: 'center',

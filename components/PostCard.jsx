@@ -22,31 +22,35 @@ export default function PostCard({
 }) {
   return (
     <View style={styles.card}>
-      {/* Kebab Menu */}
-      <TouchableOpacity style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }} onPress={() => onMenu(project)}>
-        <Ionicons name="ellipsis-vertical" size={22} color="#888" />
-      </TouchableOpacity>
-      {menuVisible && menuProject?.id === project.id && (
-        <View style={{
-          position: 'absolute',
-          top: 36,
-          right: 12,
-          backgroundColor: '#fff',
-          borderRadius: 8,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.2,
-          shadowRadius: 4,
-          elevation: 3,
-          zIndex: 100,
-        }}>
-          {currentUserId === project.user_id ? (
-            <TouchableOpacity style={{ padding: 10 }} onPress={handleDelete}><Text style={{ color: 'red' }}>Delete</Text></TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={{ padding: 10 }} onPress={handleReport}><Text>Report</Text></TouchableOpacity>
+      {/* Kebab Menu - Only show if hideEdit is false */}
+      {!hideEdit && (
+        <>
+          <TouchableOpacity style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }} onPress={() => onMenu(project)}>
+            <Ionicons name="ellipsis-vertical" size={22} color="#888" />
+          </TouchableOpacity>
+          {menuVisible && menuProject?.id === project.id && (
+            <View style={{
+              position: 'absolute',
+              top: 36,
+              right: 12,
+              backgroundColor: '#fff',
+              borderRadius: 8,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.2,
+              shadowRadius: 4,
+              elevation: 3,
+              zIndex: 100,
+            }}>
+              {currentUserId === project.user_id ? (
+                <TouchableOpacity style={{ padding: 10 }} onPress={handleDelete}><Text style={{ color: 'red' }}>Delete</Text></TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={{ padding: 10 }} onPress={handleReport}><Text>Report</Text></TouchableOpacity>
+              )}
+              <TouchableOpacity style={{ padding: 10 }} onPress={closeMenu}><Text>Close</Text></TouchableOpacity>
+            </View>
           )}
-          <TouchableOpacity style={{ padding: 10 }} onPress={closeMenu}><Text>Close</Text></TouchableOpacity>
-        </View>
+        </>
       )}
       {/* User Info */}
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>

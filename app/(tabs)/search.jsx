@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Keyboard, Linking, RefreshControl, ScrollView, Share, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PostCard from '../../components/PostCard';
 import UserProfileModal from '../../components/UserProfileModal';
+import { useRefresh } from '../../lib/RefreshContext';
 import { bookmarkProject, deleteProject, getCurrentUser, getProjects, likeProject, searchProjectsByTitle, searchUsersByName } from '../../lib/supabase';
 
 export default function SearchScreen() {
@@ -21,12 +22,13 @@ export default function SearchScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [profileUserId, setProfileUserId] = useState(null);
+  const { refreshKey } = useRefresh();
 
-  React.useEffect(() => {
+  useEffect(() => {
     getCurrentUser().then(({ data }) => setCurrentUserId(data?.user?.id || null));
-  }, []);
+  }, [refreshKey]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!query.trim()) {
       setLoading(true);
       getCurrentUser().then(({ data }) => {
@@ -156,6 +158,15 @@ export default function SearchScreen() {
     }
   };
 
+  const handleUserPress = (userId) => {
+    if (userId === currentUserId) {
+      router.push('/(tabs)/profile');
+    } else {
+      setProfileUserId(userId);
+      setProfileModalVisible(true);
+    }
+  };
+
   // Only show approved projects (or user's own projects)
   const filteredProjects = projectResults.filter(p =>
     ((p.category || '').trim().toLowerCase() === selectedCategory.trim().toLowerCase()) &&
@@ -198,7 +209,7 @@ export default function SearchScreen() {
     <TouchableOpacity
       key={user.user_id}
       style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#fff', borderRadius: 10, marginBottom: 10, elevation: 1 }}
-      onPress={() => router.push({ pathname: '/profile', params: { user_id: user.user_id } })}
+      onPress={() => handleUserPress(user.user_id)}
     >
       <Image
         source={{ uri: user.profile_picture_url || 'https://ui-avatars.com/api/?name=User&background=4A90E2&color=fff&size=120' }}

@@ -153,7 +153,7 @@ const Login = () => {
           alignItems: 'center',
         }}>
           <View style={{ flex: 1 }} />
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/ForgotPasswordScreen')}>
             <Text style={{
               color: '#35359e',
               fontWeight: 'bold',

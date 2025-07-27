@@ -4,9 +4,11 @@ import SplashScreen from '../components/SplashScreen';
 import { RefreshProvider } from '../lib/RefreshContext';
 import { getUserProfile, supabase } from '../lib/supabase';
 
+console.log("=== ENVIRONMENT VARIABLES DEBUG ===");
 console.log("EXPO_PUBLIC_SUPABASE_URL:", process.env.EXPO_PUBLIC_SUPABASE_URL);
-console.log("EXPO_PUBLIC_SUPABASE_ANON_KEY:", process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
-console.log("EXPO_PUBLIC_SUPABASE_SERVICE_KEY:", process.env.EXPO_PUBLIC_SUPABASE_SERVICE_KEY);
+console.log("EXPO_PUBLIC_SUPABASE_ANON_KEY:", process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ? "SET" : "NOT SET");
+console.log("EXPO_PUBLIC_SUPABASE_SERVICE_KEY:", process.env.EXPO_PUBLIC_SUPABASE_SERVICE_KEY ? "SET" : "NOT SET");
+console.log("=== END DEBUG ===");
 
 export default function RootLayout() {
   const [showSplash, setShowSplash] = useState(true);
@@ -22,6 +24,7 @@ export default function RootLayout() {
     // Check authentication status
     const checkAuth = async () => {
       try {
+        console.log("Starting auth check...");
         // Check for existing session
         const { data: { session } } = await supabase.auth.getSession();
         console.log('Initial auth check - session:', !!session);
