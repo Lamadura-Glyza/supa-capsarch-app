@@ -28,7 +28,12 @@ export default function HomeScreen() {
 
   useEffect(() => {
     fetchProjects();
-    getCurrentUser().then(({ data }) => setCurrentUserId(data?.user?.id || null));
+    getCurrentUser().then(({ data }) => {
+      setCurrentUserId(data?.user?.id || null);
+    }).catch((error) => {
+      console.error('Error getting current user:', error);
+      setCurrentUserId(null);
+    });
   }, [refreshKey]);
 
   // Poll for projects every 5 seconds
@@ -40,7 +45,9 @@ export default function HomeScreen() {
         if (!user) return;
         const projectsData = await getProjects();
         if (mounted) setProjects(projectsData);
-      } catch (err) {}
+      } catch (err) {
+        console.error('Error in polling projects:', err);
+      }
     };
     const interval = setInterval(poll, 5000);
     return () => { mounted = false; clearInterval(interval); };
