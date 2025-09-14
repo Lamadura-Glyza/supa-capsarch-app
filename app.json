@@ -26,25 +26,13 @@
     },
     "plugins": [
       "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
-        }
-      ],
       "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "514fbbaf-2280-43f2-b2e3-b8801104e19b"
-      }
+      "router": {}
     }
   }
 }

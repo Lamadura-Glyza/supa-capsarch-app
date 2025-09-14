@@ -1,16 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { signUpWithEmail } from '../../lib/supabase';
 
 const Signup = ({ navigation }) => {
-    const [fullName, setFullName] = useState('');
+  const { role } = useLocalSearchParams();
+  const [fullName, setFullName] = useState('');
   const [gender, setGender] = useState('');
   const [yearLevel, setYearLevel] = useState('');
   const [block, setBlock] = useState('');
+  const [department, setDepartment] = useState('');
+  const [userRole, setUserRole] = useState(role || 'student');
 
   const [isPasswordShown, setIsPasswordShown] = useState(false);
 const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
@@ -22,10 +25,17 @@ const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
   const [success, setSuccess] = useState('');
 
   const handleSignup = async () => {
+    const startTime = Date.now();
     setError('');
     setSuccess('');
-    if (!fullName || !yearLevel || !block || !gender) {
-      setError('Full Name, Year Level, Block, and Gender are required.');
+    if (!fullName || !gender || !department) {
+      setError('Full Name, Department, and Gender are required.');
+      return;
+    }
+    
+    // Only require year level and block for students
+    if (userRole === 'student' && (!yearLevel || !block)) {
+      setError('Year Level and Block are required for students.');
       return;
     }
     if (!email || !password) {
@@ -37,40 +47,62 @@ const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
       return;
     }
     setLoading(true);
+    console.log('Starting signup process...');
     try {
       // Prepare user metadata for signup
       const userMetadata = {
         full_name: fullName,
         year_level: yearLevel,
         block: block,
+        department: department,
         gender: gender,
+        role: userRole,
       };
       
       const { data, error } = await signUpWithEmail(email, password, userMetadata);
       if (error) {
+        console.error('Signup error:', error);
         if (
           error.message &&
           (error.message.toLowerCase().includes('already registered') ||
            error.message.toLowerCase().includes('already in use'))
         ) {
           setError('This email is already registered. Please use a different email or log in.');
+        } else if (error.message.toLowerCase().includes('rate limit')) {
+          setError('Too many signup attempts. Please wait a few minutes before trying again.');
         } else {
           setError(error.message);
         }
-      } else if (!data.user) {
-        setSuccess('');
-        setError('If this email is already registered, please log in or check your email for a confirmation link.');
       } else {
-        setSuccess('Account created successfully! Please check your email to confirm your account, then log in.');
-        setError('');
-        setTimeout(() => {
+        console.log('Signup response:', { data, hasUser: !!data?.user, hasSession: !!data?.session });
+        
+        // Check if user needs email confirmation
+        if (data?.user && !data?.session) {
+          // User created but needs email confirmation
+          console.log('User created, email confirmation required');
+          setSuccess('Account created successfully! You can now log in with your credentials.');
+          setError('');
+          // Immediate redirect - no artificial delay
           router.replace('./login');
-        }, 2000);
+        } else if (data?.user && data?.session) {
+          // User created and already confirmed (shouldn't happen in normal flow)
+          console.log('User created and already confirmed');
+          setSuccess('Account created successfully! Redirecting...');
+          setError('');
+          // Immediate redirect - no artificial delay
+          router.replace('./login');
+        } else {
+          // No user data returned - this might be an issue
+          console.log('No user data returned from signup');
+          setError('Signup failed. Please try again or contact support if the problem persists.');
+        }
       }
     } catch (err) {
       console.error('Signup error:', err);
       setError('An unexpected error occurred. Please try again.');
     } finally {
+      const totalTime = Date.now() - startTime;
+      console.log(`Total signup UI time: ${totalTime}ms`);
       setLoading(false);
     }
   };
@@ -122,10 +154,22 @@ const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
               fontSize: 14,
               color: '#35359e',
               textAlign: 'center',
-              marginBottom: 16,
+              marginBottom: 8,
             }}
           >
             Please fill in your information
+          </Text>
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: 'bold',
+              color: '#35359e',
+              textAlign: 'center',
+              marginBottom: 16,
+              textTransform: 'capitalize',
+            }}
+          >
+            Signing up as: {userRole}
           </Text>
           {error ? (
             <Text style={{ color: 'red', textAlign: 'center', marginBottom: 8 }}>{error}</Text>
@@ -216,14 +260,15 @@ const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
             }}
           />*/}
 
-          {/* Year Level and Block */}
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              marginBottom: 8,
-            }}
-          >
+          {/* Year Level and Block - Only show for students */}
+          {userRole === 'student' && (
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                marginBottom: 8,
+              }}
+            >
             <View style={{ flex: 1, marginRight: 8 }}>
               <Text
                 style={{
@@ -291,6 +336,41 @@ const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
               </Picker>
             </View>
           </View>
+          )}
+
+          {/* Department */}
+          <Text
+            style={{
+              fontSize: 14,
+              color: '#35359e',
+              marginBottom: 4,
+              marginTop: 10,
+              fontWeight: '600',
+            }}
+          >
+            Department
+          </Text>
+          <Picker
+            selectedValue={department}
+            onValueChange={(itemValue) => setDepartment(itemValue)}
+            style={{
+              borderWidth: 1,
+              borderColor: '#d1d5db',
+              borderRadius: 8,
+              backgroundColor: '#f9fafb',
+              marginBottom: 8,
+              height: 50,
+              width: '100%',
+            }}
+          >
+            <Picker.Item label="Select Department" value="" />
+            <Picker.Item label="BSIT - Bachelor of Science in Information Technology" value="BSIT" />
+            <Picker.Item label="BSHM - Bachelor of Science in Hospitality Management" value="BSHM" />
+            <Picker.Item label="BEED - Bachelor of Elementary Education" value="BEED" />
+            <Picker.Item label="BSED - Bachelor of Secondary Education" value="BSED" />
+            <Picker.Item label="BPED - Bachelor of Physical Education" value="BPED" />
+            <Picker.Item label="BSENTREP - Bachelor of Science in Entrepreneurship" value="BSENTREP" />
+          </Picker>
 
           {/* Gender */}
           <Text

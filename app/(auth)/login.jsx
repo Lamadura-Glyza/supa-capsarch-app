@@ -18,10 +18,13 @@ const Login = () => {
   const handleLogin = async () => {
     setLoading(true);
     setError('');
-    const { error } = await signInWithEmail(email, password);
+    const { data, error } = await signInWithEmail(email, password);
     setLoading(false);
     if (error) {
       setError(error.message);
+    } else if (data) {
+      // Login successful, the app will handle navigation automatically
+      console.log('Login successful');
     }
   };
 

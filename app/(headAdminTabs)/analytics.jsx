@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, RefreshControl, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import PostCard from '../../components/PostCard';
 import { getAllProjects, getAllUsers, getAnalytics, getApprovedProjects, getPendingProjects, getProjectStatusCounts, getRejectedProjects, supabaseAdmin } from '../../lib/supabaseAdmin';
 
@@ -8,6 +8,7 @@ export default function AdminAnalytics() {
   const [analytics, setAnalytics] = useState(null);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [statusCounts, setStatusCounts] = useState({ pending: 0, approved: 0, rejected: 0 });
   const [mostLikedProject, setMostLikedProject] = useState(null);
@@ -199,15 +200,17 @@ export default function AdminAnalytics() {
   };
 
   const onRefresh = async () => {
-    await fetchAnalytics();
+    setRefreshing(true);
+    try {
+      await fetchAnalytics();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   useEffect(() => {
     fetchAnalytics();
-    const interval = setInterval(() => {
-      fetchAnalytics();
-    }, 20000); // 20 seconds
-    return () => clearInterval(interval);
+    // Removed automatic polling - analytics now only fetch on initial load and manual refresh
   }, []);
 
   if (loading) {
@@ -230,7 +233,17 @@ export default function AdminAnalytics() {
   const renderAnalyticsView = () => (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView 
+        contentContainerStyle={styles.container}
+        refreshControl={
+          <RefreshControl 
+            refreshing={refreshing} 
+            onRefresh={onRefresh}
+            tintColor="#35359e"
+            colors={['#35359e']}
+          />
+        }
+      >
         <Text style={styles.title}></Text>
         <View style={styles.analyticsBox}>
           <Text style={styles.analyticsTitle}>App Statistics</Text>

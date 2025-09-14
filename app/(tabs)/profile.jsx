@@ -4,20 +4,21 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Image,
-  Linking // <-- add this import
-  ,
-  Modal,
-  Platform,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Image,
+    Linking // <-- add this import
+    ,
+
+    Modal,
+    Platform,
+    RefreshControl,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SceneMap, TabBar, TabView } from 'react-native-tab-view';
@@ -405,7 +406,7 @@ export default function ProfileScreen() {
             <Text style={styles.userName}>{profile?.full_name || 'Juan Dela Cruz'}</Text>
             {/* Department, Year Level, Block */}
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-              <Text style={styles.userDept}>BSIT</Text>
+              <Text style={styles.userDept}>{profile?.department || 'Not specified'}</Text>
               <Text style={styles.userDeptSep}> – </Text>
               {editMode ? (
                 <TextInput

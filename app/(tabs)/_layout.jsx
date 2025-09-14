@@ -1,6 +1,6 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs, useFocusEffect } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import COLORS from '../../constants/colors';
 import { getCurrentUser, getUnreadNotificationCount, getUserProfile } from '../../lib/supabase';
@@ -21,22 +21,7 @@ function NotificationTabIcon({ color, focused }) {
       return () => { mounted = false; };
     }, [])
   );
-  useEffect(() => {
-    let mounted = true;
-    const poll = async () => {
-      const { data: { user } } = await getCurrentUser();
-      if (user) {
-        const count = await getUnreadNotificationCount();
-        if (mounted) setUnread(count);
-      }
-    };
-    const interval = setInterval(poll, 5000); // 5 seconds
-    poll(); // initial fetch
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
-  }, []);
+  // Removed automatic polling - notifications now only fetch on tab focus
   return (
     <View>
       <Ionicons name={focused ? 'notifications' : 'notifications-outline'} size={26} color={color} />
@@ -70,7 +55,7 @@ export default function TabsLayout() {
       let mounted = true;
       setCheckingRole(true);
       getUserProfile().then(profile => {
-        if (mounted) setIsAdmin(profile?.role === 'admin');
+        if (mounted) setIsAdmin(profile?.role === 'head_admin');
       }).finally(() => {
         if (mounted) setCheckingRole(false);
       });
