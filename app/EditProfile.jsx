@@ -19,7 +19,6 @@ export default function EditProfileScreen() {
   const [gender, setGender] = useState('Male');
   const [yearLevel, setYearLevel] = useState('4');
   const [block, setBlock] = useState('A');
-  const [department, setDepartment] = useState('');
   const [bio, setBio] = useState('');
   const [profilePictureUrl, setProfilePictureUrl] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -49,7 +48,6 @@ export default function EditProfileScreen() {
         setGender(normalizedGender);
         setYearLevel(profile.year_level || '4');
         setBlock(profile.block || 'A');
-        setDepartment(profile.department || '');
         setBio(profile.bio || '');
         
         // Set profile picture
@@ -177,7 +175,6 @@ export default function EditProfileScreen() {
         fullName: fullName.trim(),
         yearLevel,
         block,
-        department,
         gender,
         bio: bio.trim(),
         profilePictureUrl,
@@ -223,7 +220,7 @@ export default function EditProfileScreen() {
         {/* Header */}
         <View style={styles.headerRow}>
           <TouchableOpacity onPress={() => {
-            if (role !== 'head_admin') {
+            if (role !== 'admin') {
               router.replace('/(tabs)/profile');
             } else {
               router.back();
@@ -265,7 +262,7 @@ export default function EditProfileScreen() {
           </TouchableOpacity>
         </View>
         {/* Year Level and Block - only for non-admins */}
-        {role !== 'head_admin' && (
+        {role !== 'admin' && (
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
               <Text style={styles.label}>Year Level</Text>
@@ -304,32 +301,8 @@ export default function EditProfileScreen() {
             </View>
           </View>
         )}
-
-        {/* Department - only for non-admins */}
-        {role !== 'head_admin' && (
-          <View style={{ marginBottom: 16 }}>
-            <Text style={styles.label}>Department</Text>
-            <View style={styles.pickerWrapper}>
-              <Picker
-                selectedValue={department}
-                onValueChange={setDepartment}
-                style={styles.picker}
-                dropdownIconColor="#23235b"
-                mode="dropdown"
-              >
-                <Picker.Item label="Select Department" value="" />
-                <Picker.Item label="BSIT - Bachelor of Science in Information Technology" value="BSIT" />
-                <Picker.Item label="BSHM - Bachelor of Science in Hospitality Management" value="BSHM" />
-                <Picker.Item label="BEED - Bachelor of Elementary Education" value="BEED" />
-                <Picker.Item label="BSED - Bachelor of Secondary Education" value="BSED" />
-                <Picker.Item label="BPED - Bachelor of Physical Education" value="BPED" />
-                <Picker.Item label="BSENTREP - Bachelor of Science in Entrepreneurship" value="BSENTREP" />
-              </Picker>
-            </View>
-          </View>
-        )}
         {/* Bio - only for non-admins */}
-        {role !== 'head_admin' && (
+        {role !== 'admin' && (
           <>
             <Text style={styles.label}>Bio</Text>
             <TextInput

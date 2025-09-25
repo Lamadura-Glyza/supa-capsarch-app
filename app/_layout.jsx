@@ -1,8 +1,9 @@
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
+import SplashScreen from '../components/SplashScreen';
 import { RefreshProvider } from '../lib/RefreshContext';
-import { createDefaultProfile, supabase } from '../lib/supabase';
+import { getUserProfile, supabase } from '../lib/supabase';
 
 console.log("=== ENVIRONMENT VARIABLES DEBUG ===");
 console.log("EXPO_PUBLIC_SUPABASE_URL:", process.env.EXPO_PUBLIC_SUPABASE_URL);
@@ -20,34 +21,16 @@ try {
 }
 
 export default function RootLayout() {
+  const [showSplash, setShowSplash] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [role, setRole] = useState(null);
   const [checkingRole, setCheckingRole] = useState(false);
   const [hasError, setHasError] = useState(false);
-  const [accountError, setAccountError] = useState(null);
-  const [loadingTimeout, setLoadingTimeout] = useState(false);
   const router = useRouter();
-  const segments = useSegments();
-
-  // Error boundary for the entire component
-  const handleError = (error) => {
-    console.error('Root layout error:', error);
-    setHasError(true);
-  };
 
   useEffect(() => {
     let mounted = true;
-
-    // Set a timeout to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      if (mounted && (isLoading || checkingRole)) {
-        console.log('Loading timeout reached, forcing app to proceed');
-        setLoadingTimeout(true);
-        setIsLoading(false);
-        setCheckingRole(false);
-      }
-    }, 10000); // 10 second timeout
 
     // Check authentication status
     const checkAuth = async () => {
@@ -69,9 +52,6 @@ export default function RootLayout() {
       }
     };
 
-    // Wrap the entire effect in try-catch
-    try {
-
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -83,52 +63,17 @@ export default function RootLayout() {
             console.log('Setting isLoggedIn to:', newLoginState, 'for event:', event);
             setIsLoggedIn(newLoginState);
             setIsLoading(false);
-            setAccountError(null); // Clear any previous account errors
-            
             // Always re-check role after any auth state change
             if (newLoginState) {
               setCheckingRole(true);
-              
-              try {
-                // Single optimized query to get user profile and validate account
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) {
-                  console.log('No user found in auth state change');
-                  setRole(null);
-                  setCheckingRole(false);
-                  return;
-                }
-
-                const { data: profileData, error: profileError } = await supabase
-                  .from('user_profiles')
-                  .select('user_id, role')
-                  .eq('user_id', user.id)
-                  .single();
-
-                if (profileError) {
-                  if (profileError.code === 'PGRST116') { // No rows returned
-                    console.log('No profile found, creating default profile...');
-                    await createDefaultProfile();
-                    // After creating profile, get the role
-                    const { data: newProfile } = await supabase
-                      .from('user_profiles')
-                      .select('role')
-                      .eq('user_id', user.id)
-                      .single();
-                    setRole(newProfile?.role || null);
-                  } else {
-                    console.error('Error fetching user profile:', profileError);
-                    setRole(null);
-                  }
-                } else {
-                  setRole(profileData?.role || null);
-                }
+              getUserProfile().then(profile => {
+                setRole(profile?.role);
                 setCheckingRole(false);
-              } catch (error) {
-                console.error('Error in auth state change handler:', error);
+              }).catch((error) => {
+                console.error('Error fetching user profile:', error);
                 setRole(null);
                 setCheckingRole(false);
-              }
+              });
             } else {
               setRole(null);
             }
@@ -144,76 +89,33 @@ export default function RootLayout() {
       }
     );
 
-      checkAuth();
+    checkAuth();
 
-      // Cleanup subscription and mounted flag
-      return () => {
-        mounted = false;
-        clearTimeout(timeoutId);
-        subscription.unsubscribe();
-      };
-    } catch (error) {
-      handleError(error);
-      if (mounted) {
-        setIsLoggedIn(false);
-        setIsLoading(false);
-      }
-    }
+    // Cleanup subscription and mounted flag
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // Navigation logic based on authentication status
+  // Check user role after login
   useEffect(() => {
-    if (isLoading || checkingRole) return; // Don't navigate while loading
+    if (!isLoggedIn) return;
+    setCheckingRole(true);
+    getUserProfile().then(profile => {
+      setRole(profile?.role);
+      setCheckingRole(false);
+    }).catch((error) => {
+      console.error('Error fetching user profile:', error);
+      setRole(null);
+      setCheckingRole(false);
+    });
+  }, [isLoggedIn]);
 
-    const inAuthGroup = segments[0] === '(auth)';
-    const inTabsGroup = segments[0] === '(tabs)';
-    const inHeadAdminTabsGroup = segments[0] === '(headAdminTabs)';
-    const inOnboarding = segments[0] === 'onboarding';
-    const inRoleSelection = segments[0] === 'role-selection';
-    const inSignup = segments[0] === 'signup';
-
-    if (!isLoggedIn) {
-      // User is not logged in - redirect to onboarding if not already there
-      if (!inOnboarding && !inRoleSelection && !inSignup && !inAuthGroup) {
-        router.replace('/onboarding');
-      }
-    } else {
-      // User is logged in - redirect based on role
-      if (role === 'head_admin') {
-        if (!inHeadAdminTabsGroup) {
-          router.replace('/(headAdminTabs)');
-        }
-      } else if (role && role !== 'head_admin') {
-        if (!inTabsGroup) {
-          router.replace('/(tabs)');
-        }
-      }
-    }
-  }, [isLoggedIn, role, isLoading, checkingRole, segments]);
-
-  // Account error handler - show error and redirect to login
-  if (accountError) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#f5f5f5' }}>
-        <Text style={{ fontSize: 18, textAlign: 'center', marginBottom: 20, color: '#333' }}>
-          {accountError}
-        </Text>
-        <Text style={{ fontSize: 14, textAlign: 'center', marginBottom: 20, color: '#666' }}>
-          Please log in with a valid account.
-        </Text>
-        <TouchableOpacity 
-          style={{ padding: 10, backgroundColor: '#35359e', borderRadius: 8 }}
-          onPress={() => {
-            setAccountError(null);
-            setIsLoggedIn(false);
-            setIsLoading(false);
-          }}
-        >
-          <Text style={{ color: 'white' }}>Go to Login</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Global error handler
   if (hasError) {
@@ -246,37 +148,21 @@ export default function RootLayout() {
     );
   }
 
-  // Show loading state while checking auth/role
-  if (isLoading || checkingRole || (isLoggedIn && role === null)) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#35359e' }}>
-        <Text style={{ color: 'white', fontSize: 16 }}>Loading...</Text>
-        {loadingTimeout && (
-          <TouchableOpacity 
-            style={{ marginTop: 20, padding: 10, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8 }}
-            onPress={() => {
-              setLoadingTimeout(false);
-              setIsLoading(false);
-              setCheckingRole(false);
-            }}
-          >
-            <Text style={{ color: 'white', fontSize: 14 }}>Continue</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    );
+  if (showSplash || isLoading || checkingRole || (isLoggedIn && role === null)) {
+    return <SplashScreen />;
   }
 
-  // Route based on role - define all screens and use navigation logic
+  // Route based on role
   return (
     <RefreshProvider>
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="onboarding" />
-        <Stack.Screen name="role-selection" />
-        <Stack.Screen name="signup" />
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(headAdminTabs)" />
+        {!isLoggedIn ? (
+          <Stack.Screen name="(auth)" />
+        ) : role === 'admin' ? (
+          <Stack.Screen name="(adminTabs)" />
+        ) : (
+          <Stack.Screen name="(tabs)" />
+        )}
       </Stack>
     </RefreshProvider>
   );

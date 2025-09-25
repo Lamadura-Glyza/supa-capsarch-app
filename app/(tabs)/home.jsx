@@ -36,7 +36,22 @@ export default function HomeScreen() {
     });
   }, [refreshKey]);
 
-  // Removed automatic polling - projects now only fetch on initial load and manual refresh
+  // Poll for projects every 5 seconds
+  useEffect(() => {
+    let mounted = true;
+    const poll = async () => {
+      try {
+        const { data: { user } } = await getCurrentUser();
+        if (!user) return;
+        const projectsData = await getProjects();
+        if (mounted) setProjects(projectsData);
+      } catch (err) {
+        console.error('Error in polling projects:', err);
+      }
+    };
+    const interval = setInterval(poll, 5000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
 
   const fetchProjects = async () => {
     try {

@@ -11,6 +11,7 @@ import {
     Linking // <-- add this import
     ,
 
+
     Modal,
     Platform,
     RefreshControl,
@@ -406,8 +407,6 @@ export default function ProfileScreen() {
             <Text style={styles.userName}>{profile?.full_name || 'Juan Dela Cruz'}</Text>
             {/* Department, Year Level, Block */}
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-              <Text style={styles.userDept}>{profile?.department || 'Not specified'}</Text>
-              <Text style={styles.userDeptSep}> – </Text>
               {editMode ? (
                 <TextInput
                   style={styles.userYearBlockInput}
