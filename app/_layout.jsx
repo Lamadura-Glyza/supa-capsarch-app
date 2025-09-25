@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { RefreshProvider } from '../lib/RefreshContext';
@@ -27,6 +27,8 @@ export default function RootLayout() {
   const [hasError, setHasError] = useState(false);
   const [accountError, setAccountError] = useState(null);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
+  const router = useRouter();
+  const segments = useSegments();
 
   // Error boundary for the entire component
   const handleError = (error) => {
@@ -159,8 +161,35 @@ export default function RootLayout() {
     }
   }, []);
 
-  // Note: Role checking is now handled in the auth state change handler above
-  // This eliminates redundant database calls and improves performance
+  // Navigation logic based on authentication status
+  useEffect(() => {
+    if (isLoading || checkingRole) return; // Don't navigate while loading
+
+    const inAuthGroup = segments[0] === '(auth)';
+    const inTabsGroup = segments[0] === '(tabs)';
+    const inHeadAdminTabsGroup = segments[0] === '(headAdminTabs)';
+    const inOnboarding = segments[0] === 'onboarding';
+    const inRoleSelection = segments[0] === 'role-selection';
+    const inSignup = segments[0] === 'signup';
+
+    if (!isLoggedIn) {
+      // User is not logged in - redirect to onboarding if not already there
+      if (!inOnboarding && !inRoleSelection && !inSignup && !inAuthGroup) {
+        router.replace('/onboarding');
+      }
+    } else {
+      // User is logged in - redirect based on role
+      if (role === 'head_admin') {
+        if (!inHeadAdminTabsGroup) {
+          router.replace('/(headAdminTabs)');
+        }
+      } else if (role && role !== 'head_admin') {
+        if (!inTabsGroup) {
+          router.replace('/(tabs)');
+        }
+      }
+    }
+  }, [isLoggedIn, role, isLoading, checkingRole, segments]);
 
   // Account error handler - show error and redirect to login
   if (accountError) {
@@ -238,16 +267,16 @@ export default function RootLayout() {
     );
   }
 
-  // Route based on role
+  // Route based on role - define all screens and use navigation logic
   return (
     <RefreshProvider>
       <Stack screenOptions={{ headerShown: false }}>
-        {!isLoggedIn && <Stack.Screen name="onboarding" />}
-        {!isLoggedIn && <Stack.Screen name="role-selection" />}
-        {!isLoggedIn && <Stack.Screen name="signup" />}
-        {!isLoggedIn && <Stack.Screen name="(auth)" />}
-        {isLoggedIn && role === 'head_admin' && <Stack.Screen name="(adminTabs)" />}
-        {isLoggedIn && role !== 'head_admin' && <Stack.Screen name="(tabs)" />}
+        <Stack.Screen name="onboarding" />
+        <Stack.Screen name="role-selection" />
+        <Stack.Screen name="signup" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="(headAdminTabs)" />
       </Stack>
     </RefreshProvider>
   );
