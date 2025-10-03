@@ -30,7 +30,7 @@ export default function VerificationScreen() {
     return () => {
       subscription.remove();
     };
-  }, [router]);
+  }, []);
 
   const handleResend = async () => {
     setLoading(true);

@@ -1,7 +1,6 @@
 import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
-import SplashScreen from '../components/SplashScreen';
+import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { RefreshProvider } from '../lib/RefreshContext';
 import { getUserProfile, supabase } from '../lib/supabase';
 
@@ -21,7 +20,6 @@ try {
 }
 
 export default function RootLayout() {
-  const [showSplash, setShowSplash] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [role, setRole] = useState(null);
@@ -112,10 +110,6 @@ export default function RootLayout() {
     });
   }, [isLoggedIn]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 2000);
-    return () => clearTimeout(timer);
-  }, []);
 
   // Global error handler
   if (hasError) {
@@ -148,8 +142,8 @@ export default function RootLayout() {
     );
   }
 
-  if (showSplash || isLoading || checkingRole || (isLoggedIn && role === null)) {
-    return <SplashScreen />;
+  if (isLoading || checkingRole || (isLoggedIn && role === null)) {
+    return <ActivityIndicator size="large" color="#35359e" style={{ flex: 1, justifyContent: 'center' }} />;
   }
 
   // Route based on role

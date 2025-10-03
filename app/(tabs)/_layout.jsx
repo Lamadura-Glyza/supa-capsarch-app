@@ -11,10 +11,15 @@ function NotificationTabIcon({ color, focused }) {
     React.useCallback(() => {
       let mounted = true;
       const fetchUnread = async () => {
-        const { data: { user } } = await getCurrentUser();
-        if (user) {
-          const count = await getUnreadNotificationCount();
-          if (mounted) setUnread(count);
+        try {
+          const { data: { user } } = await getCurrentUser();
+          if (user) {
+            const count = await getUnreadNotificationCount();
+            if (mounted) setUnread(count);
+          }
+        } catch (error) {
+          console.error('Error fetching unread count in focus effect:', error);
+          if (mounted) setUnread(0);
         }
       };
       fetchUnread();
@@ -24,10 +29,15 @@ function NotificationTabIcon({ color, focused }) {
   useEffect(() => {
     let mounted = true;
     const poll = async () => {
-      const { data: { user } } = await getCurrentUser();
-      if (user) {
-        const count = await getUnreadNotificationCount();
-        if (mounted) setUnread(count);
+      try {
+        const { data: { user } } = await getCurrentUser();
+        if (user) {
+          const count = await getUnreadNotificationCount();
+          if (mounted) setUnread(count);
+        }
+      } catch (error) {
+        console.error('Error fetching unread count in polling:', error);
+        if (mounted) setUnread(0);
       }
     };
     const interval = setInterval(poll, 5000); // 5 seconds
