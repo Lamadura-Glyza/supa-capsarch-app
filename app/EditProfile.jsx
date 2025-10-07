@@ -240,83 +240,86 @@ export default function EditProfileScreen() {
           </TouchableOpacity>
         </View>
         
-        {/* Full Name */}
-        <Text style={styles.label}>Full Name</Text>
-        <TextInput
-          style={styles.input}
-          value={fullName}
-          onChangeText={setFullName}
-          placeholder="Enter your full name"
-        />
-        
-        {/* Gender */}
-        <Text style={styles.label}>Gender</Text>
-        <View style={styles.genderRow}>
-          <TouchableOpacity style={styles.radioBtn} onPress={() => setGender('Male')}>
-            <View style={[styles.radioCircle, gender === 'Male' && styles.radioCircleSelected]} />
-            <Text style={styles.radioLabel}>Male</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.radioBtn} onPress={() => setGender('Female')}>
-            <View style={[styles.radioCircle, gender === 'Female' && styles.radioCircleSelected]} />
-            <Text style={styles.radioLabel}>Female</Text>
-          </TouchableOpacity>
-        </View>
-        {/* Year Level and Block - only for non-admins */}
-        {role !== 'admin' && (
-          <View style={styles.row}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.label}>Year Level</Text>
-              <View style={styles.pickerWrapper}>
-                <Picker
-                  selectedValue={yearLevel}
-                  onValueChange={setYearLevel}
-                  style={styles.picker}
-                  dropdownIconColor="#23235b"
-                  mode="dropdown"
-                >
-                  <Picker.Item label="1st Year" value="1" />
-                  <Picker.Item label="2nd Year" value="2" />
-                  <Picker.Item label="3rd Year" value="3" />
-                  <Picker.Item label="4th Year" value="4" />
-                </Picker>
-              </View>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.label}>Block</Text>
-              <View style={styles.pickerWrapper}>
-                <Picker
-                  selectedValue={block}
-                  onValueChange={setBlock}
-                  style={styles.picker}
-                  dropdownIconColor="#23235b"
-                  mode="dropdown"
-                >
-                  <Picker.Item label="Block A" value="A" />
-                  <Picker.Item label="Block B" value="B" />
-                  <Picker.Item label="Block C" value="C" />
-                  <Picker.Item label="Block D" value="D" />
-                  <Picker.Item label="Block E" value="E" />
-                </Picker>
-              </View>
-            </View>
-          </View>
-        )}
-        {/* Bio - only for non-admins */}
-        {role !== 'admin' && (
-          <>
-            <Text style={styles.label}>Bio</Text>
-            <TextInput
-              style={styles.bioInput}
-              value={bio}
-              onChangeText={setBio}
-              placeholder="Write something about yourself..."
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
-          </>
-        )}
-        
+{/* Full Name */}
+<Text style={styles.label}>Full Name</Text>
+<TextInput
+  style={styles.input}
+  value={fullName}
+  onChangeText={setFullName}
+  placeholder="Enter your full name"
+/>
+
+{/* Gender */}
+<Text style={styles.label}>Gender</Text>
+<View style={styles.genderRow}>
+  <TouchableOpacity style={styles.radioBtn} onPress={() => setGender('Male')}>
+    <View style={[styles.radioCircle, gender === 'Male' && styles.radioCircleSelected]} />
+    <Text style={styles.radioLabel}>Male</Text>
+  </TouchableOpacity>
+  <TouchableOpacity style={styles.radioBtn} onPress={() => setGender('Female')}>
+    <View style={[styles.radioCircle, gender === 'Female' && styles.radioCircleSelected]} />
+    <Text style={styles.radioLabel}>Female</Text>
+  </TouchableOpacity>
+</View>
+
+{/* Year Level & Block — visible only for non-admin and non-teacher */}
+{role !== 'admin' && role !== 'teacher_admin' && role !== 'teacher' && (
+  <View style={styles.row}>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.label}>Year Level</Text>
+      <View style={styles.pickerWrapper}>
+        <Picker
+          selectedValue={yearLevel}
+          onValueChange={setYearLevel}
+          style={styles.picker}
+          dropdownIconColor="#23235b"
+          mode="dropdown"
+        >
+          <Picker.Item label="1st Year" value="1" />
+          <Picker.Item label="2nd Year" value="2" />
+          <Picker.Item label="3rd Year" value="3" />
+          <Picker.Item label="4th Year" value="4" />
+        </Picker>
+      </View>
+    </View>
+
+    <View style={{ flex: 1 }}>
+      <Text style={styles.label}>Block</Text>
+      <View style={styles.pickerWrapper}>
+        <Picker
+          selectedValue={block}
+          onValueChange={setBlock}
+          style={styles.picker}
+          dropdownIconColor="#23235b"
+          mode="dropdown"
+        >
+          <Picker.Item label="Block A" value="A" />
+          <Picker.Item label="Block B" value="B" />
+          <Picker.Item label="Block C" value="C" />
+          <Picker.Item label="Block D" value="D" />
+          <Picker.Item label="Block E" value="E" />
+        </Picker>
+      </View>
+    </View>
+  </View>
+)}
+
+{/* Bio — visible only for teachers and students */}
+{(role === 'teacher' || (role !== 'admin' && role !== 'teacher_admin')) && (
+  <>
+    <Text style={styles.label}>Bio</Text>
+    <TextInput
+      style={styles.bioInput}
+      value={bio}
+      onChangeText={setBio}
+      placeholder="Write something about yourself..."
+      multiline
+      numberOfLines={3}
+      textAlignVertical="top"
+    />
+  </>
+)}
+
         {/* Save Button */}
         <TouchableOpacity 
           style={[styles.saveBtn, saving && styles.saveBtnDisabled]} 

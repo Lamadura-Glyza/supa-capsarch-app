@@ -18,11 +18,29 @@ const Login = () => {
   const handleLogin = async () => {
     setLoading(true);
     setError('');
-    const { error } = await signInWithEmail(email, password);
+    console.log('Login attempt starting...');
+    const result = await signInWithEmail(email, password);
+    console.log('Login result:', { hasError: !!result?.error, errorMessage: result?.error?.message });
     setLoading(false);
-    if (error) {
-      setError(error.message);
+    if (result?.error) {
+      const message = typeof result.error === 'string' ? result.error : result.error.message;
+      // Navigate to pending-approval screen when applicable (no session exists)
+      if (message?.startsWith('Your account is pending admin approval')) {
+        setError('');
+        router.replace('/pending-approval?status=pending');
+        return;
+      }
+      if (message?.startsWith('Your account has been rejected')) {
+        setError('');
+        router.replace('/pending-approval?status=rejected');
+        return;
+      }
+      // Fallback: show inline error (invalid credentials or others)
+      setError(message);
+      return;
     }
+        console.log('Login successful, waiting for _layout.jsx to handle navigation');
+    // Login successful - user will be redirected by _layout.jsx based on role
   };
 
   return (
@@ -74,9 +92,13 @@ const Login = () => {
         }}>
           Login
         </Text>
+
         {error ? (
           <Text style={{ color: 'red', textAlign: 'center', marginBottom: 8 }}>{error}</Text>
         ) : null}
+
+
+
         {/* Email */}
         <Text style={{
           fontSize: 15,
@@ -201,7 +223,7 @@ const Login = () => {
           }}>
             Don't have an account?
           </Text>
-          <Pressable onPress={() => router.push('./signup')}>
+          <Pressable onPress={() => router.push('./role-select')}>
             <Text style={{
               color: '#35359e',
               fontWeight: 'bold',

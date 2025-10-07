@@ -23,6 +23,9 @@ export default function AdminTabsLayout() {
           if (route.name === 'dashboard') {
             return <MaterialCommunityIcons name={focused ? 'view-dashboard' : 'view-dashboard-outline'} size={28} color={color} />;
           }
+          if (route.name === 'teachers') {
+            return <Ionicons name={focused ? 'people' : 'people-outline'} size={28} color={color} />;
+          }
           if (route.name === 'analytics') {
             return <MaterialCommunityIcons name={focused ? 'chart-bar' : 'chart-bar'} size={28} color={color} />;
           }
@@ -34,6 +37,7 @@ export default function AdminTabsLayout() {
       })}
     >
       <Tabs.Screen name="dashboard" options={{ title: 'Dashboard' }} />
+      <Tabs.Screen name="teachers" options={{ title: 'Teachers' }} />
       <Tabs.Screen name="analytics" options={{ title: 'Analytics' }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
     </Tabs>

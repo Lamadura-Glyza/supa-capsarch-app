@@ -24,18 +24,40 @@ const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
   const handleSignup = async () => {
     setError('');
     setSuccess('');
-    if (!fullName || !yearLevel || !block || !gender) {
-      setError('Full Name, Year Level, Block, and Gender are required.');
+    // Basic validation
+    if (!fullName.trim()) {
+      setError('Full Name is required.');
       return;
     }
-    if (!email || !password) {
-      setError('Email and password are required.');
+    if (!email.trim()) {
+      setError('Email is required.');
+      return;
+    }
+    if (!yearLevel) {
+      setError('Year Level is required.');
+      return;
+    }
+    if (!block) {
+      setError('Block is required.');
+      return;
+    }
+    if (!gender) {
+      setError('Gender is required.');
+      return;
+    }
+    if (!password) {
+      setError('Password is required.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
       return;
     }
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
       return;
     }
+    
     setLoading(true);
     try {
       // Prepare user metadata for signup
@@ -115,7 +137,7 @@ const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
               marginTop: 4,
             }}
           >
-            Create Account
+            Student Registration
           </Text>
           <Text
             style={{

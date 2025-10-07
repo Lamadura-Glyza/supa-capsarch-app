@@ -4,22 +4,18 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Dimensions,
-    Image,
-    Linking // <-- add this import
-    ,
-
-
-    Modal,
-    Platform,
-    RefreshControl,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image,
+  Linking,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SceneMap, TabBar, TabView } from 'react-native-tab-view';
@@ -47,12 +43,14 @@ export default function ProfileScreen() {
     { key: 'projects', title: 'Project' },
     { key: 'bookmarks', title: 'Bookmark' },
   ]);
+  const [restricted, setRestricted] = useState(false);
   const [userProjects, setUserProjects] = useState([]);
   const [bookmarkedProjects, setBookmarkedProjects] = useState([]);
   const [stats, setStats] = useState({ projects: 0, bookmarks: 0 });
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isOwnProfile, setIsOwnProfile] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   // Add kebab menu state to ProfileScreen
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuProject, setMenuProject] = useState(null);
@@ -92,7 +90,16 @@ export default function ProfileScreen() {
   }, [currentUserId]);
 
   useEffect(() => {
-    getCurrentUser().then(({ data }) => setCurrentUserId(data?.user?.id || null));
+    getCurrentUser().then(({ data, error }) => {
+      if (error) {
+        console.error('Error getting current user:', error);
+        setCurrentUserId(null);
+        setIsAuthenticated(false);
+      } else {
+        setCurrentUserId(data?.user?.id || null);
+        setIsAuthenticated(true);
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -130,24 +137,41 @@ export default function ProfileScreen() {
       const profileData = await getUserProfile(profileId);
       if (!profileData) {
         setError('Profile not found.');
+        setLoading(false);
+        return;
       } else {
         setProfile(profileData);
+        const isRestricted = profileData?.role === 'teacher' && (profileData?.status === 'pending' || profileData?.status === 'rejected');
+        setRestricted(!!isRestricted);
         setEditBio(profileData.bio || '');
         setEditYear(profileData.year_level || '');
         setEditBlock(profileData.block || '');
         setEditAvatar(profileData.profile_picture_url || DEFAULT_AVATAR);
-        // Fetch projects and bookmarks
-        const projects = await getUserProjects(profileId);
-        const approvedProjects = projects.filter(p => p.status === 'approved');
-        console.log('Fetched user projects:', approvedProjects);
-        setUserProjects(approvedProjects);
-        let bookmarks = [];
-        if (viewingOwn) {
-          bookmarks = await getUserBookmarkedProjects(profileId);
-          console.log('Fetched user bookmarks:', bookmarks);
+        if (isRestricted) {
+          // Skip heavy queries when access is restricted
+          setUserProjects([]);
+          setBookmarkedProjects([]);
+          setStats({ projects: 0, bookmarks: 0 });
+          setLoading(false);
+          return;
         }
-        setBookmarkedProjects(bookmarks);
-        setStats({ projects: approvedProjects.length, bookmarks: bookmarks.length });
+        try {
+          // Fetch projects and bookmarks for normal users
+          const projects = await getUserProjects(profileId);
+          const approvedProjects = projects.filter(p => p.status === 'approved');
+          setUserProjects(approvedProjects);
+          let bookmarks = [];
+          if (viewingOwn) {
+            bookmarks = await getUserBookmarkedProjects(profileId);
+          }
+          setBookmarkedProjects(bookmarks);
+          setStats({ projects: approvedProjects.length, bookmarks: bookmarks.length });
+        } catch (projectError) {
+          console.error('Error fetching user projects/bookmarks:', projectError);
+          setUserProjects([]);
+          setBookmarkedProjects([]);
+          setStats({ projects: 0, bookmarks: 0 });
+        }
       }
     } catch (err) {
       setError('Failed to load profile. Please try again.');
@@ -329,6 +353,18 @@ export default function ProfileScreen() {
     );
   }
 
+  // Don't render profile data if user is not authenticated
+  if (!isAuthenticated) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Please log in to view profile</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (error) {
     return (
       <SafeAreaView style={styles.container}>
@@ -371,6 +407,30 @@ export default function ProfileScreen() {
     );
   }
 
+  // If restricted, show message and sign out button only
+  if (!loading && profile && restricted) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+          <Ionicons name="shield-outline" size={56} color={COLORS.primary} />
+          <Text style={{ marginTop: 16, fontSize: 18, color: '#333', textAlign: 'center', fontWeight: '600' }}>
+            {profile?.status === 'rejected' ? 'Your account was rejected.' : 'Your account is pending approval.'}
+          </Text>
+          <Text style={{ marginTop: 8, fontSize: 14, color: '#666', textAlign: 'center' }}>
+            You can update your profile while waiting. You cannot access other tabs until approval.
+          </Text>
+          <TouchableOpacity
+            style={{ marginTop: 24, backgroundColor: COLORS.primary, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8 }}
+            onPress={handleLogout}
+          >
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Sign Out</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -388,82 +448,125 @@ export default function ProfileScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
           }
         >
-          {/* Profile Section */}
-          <View style={styles.profileSection}>
-            {/* Profile Picture with Edit Button */}
-            <View style={{ alignItems: 'center', marginBottom: 10 }}>
-              {console.log('Displaying profile picture URL:', profile?.profile_picture_url || DEFAULT_AVATAR)}
-              <Image
-                source={{ uri: profile?.profile_picture_url || DEFAULT_AVATAR }}
-                style={styles.profilePicture}
-              />
-              {editMode && (
-                <TouchableOpacity style={styles.editAvatarBtn} onPress={() => Alert.alert('Edit Avatar', 'Profile picture upload coming soon!')}>
-                  <Ionicons name="camera" size={20} color="#fff" />
-                </TouchableOpacity>
-              )}
-            </View>
-            {/* Name */}
-            <Text style={styles.userName}>{profile?.full_name || 'Juan Dela Cruz'}</Text>
-            {/* Department, Year Level, Block */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-              {editMode ? (
-                <TextInput
-                  style={styles.userYearBlockInput}
-                  value={editYear}
-                  onChangeText={setEditYear}
-                  placeholder="Year"
-                  keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'}
-                />
-              ) : (
-                <Text style={styles.userYearBlock}>{profile?.year_level || '4'}</Text>
-              )}
-              <Text style={styles.userDeptSep}> </Text>
-              {editMode ? (
-                <TextInput
-                  style={styles.userYearBlockInput}
-                  value={editBlock}
-                  onChangeText={setEditBlock}
-                  placeholder="Block"
-                />
-              ) : (
-                <Text style={styles.userYearBlock}>{profile?.block || 'A'}</Text>
-              )}
-            </View>
-            
-            {/* Gender Section */}
-            <View style={{ width: '100%', marginBottom: 8, alignItems: 'center' }}>
-              <Text style={styles.genderText}>{profile?.gender || 'Not specified'}</Text>
-            </View>
-            
-            {/* Bio Section */}
-            <View style={{ width: '100%', marginBottom: 16 }}>
-              {editMode ? (
-                <TextInput
-                  style={styles.bioInput}
-                  value={editBio}
-                  onChangeText={setEditBio}
-                  placeholder="Write something about yourself..."
-                  multiline
-                  numberOfLines={3}
-                  textAlignVertical="top"
-                />
-              ) : (
-                <Text style={styles.bioText}>{profile?.bio || 'No Bio'}</Text>
-              )}
-            </View>
-            {/* Edit Mode Buttons */}
-            {editMode && (
-              <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 16 }}>
-                <TouchableOpacity style={styles.saveBtn} onPress={handleSaveProfile}>
-                  <Text style={styles.saveBtnText}>Save</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelEdit}>
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
+{/* Profile Section */}
+<View style={styles.profileSection}>
+  {/* Profile Picture */}
+  <View style={{ alignItems: 'center', marginBottom: 10 }}>
+    <Image
+      source={{ uri: profile?.profile_picture_url || DEFAULT_AVATAR }}
+      style={styles.profilePicture}
+    />
+    {editMode && (
+      <TouchableOpacity
+        style={styles.editAvatarBtn}
+        onPress={() =>
+          Alert.alert('Edit Avatar', 'Profile picture upload coming soon!')
+        }
+      >
+        <Ionicons name="camera" size={20} color="#fff" />
+      </TouchableOpacity>
+    )}
+  </View>
+
+  {/* Full Name */}
+  <Text style={styles.userName}>{profile?.full_name || 'Juan Dela Cruz'}</Text>
+
+  {/* Role-based UI */}
+  {profile?.role === 'teacher' ? (
+    <>
+      {/* BSIT Faculty (static) */}
+      <Text style={styles.userDept}>BSIT Faculty</Text>
+
+      {/* Gender */}
+      <View style={{ width: '100%', marginTop: 8, alignItems: 'center' }}>
+        <Text style={styles.genderText}>{profile?.gender || 'Not specified'}</Text>
+      </View>
+
+      {/* Bio */}
+      <View style={{ width: '100%', marginTop: 12 }}>
+        {editMode ? (
+          <TextInput
+            style={styles.bioInput}
+            value={editBio}
+            onChangeText={setEditBio}
+            placeholder="Write something about yourself..."
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+          />
+        ) : (
+          <Text style={styles.bioText}>{profile?.bio || 'No Bio'}</Text>
+        )}
+      </View>
+    </>
+  ) : (
+    <>
+      {/* Department, Year Level, Block (for non-teachers) */}
+      <View
+        style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}
+      >
+        <Text style={styles.userDept}>BSIT</Text>
+        <Text style={styles.userDeptSep}> – </Text>
+        {editMode ? (
+          <TextInput
+            style={styles.userYearBlockInput}
+            value={editYear}
+            onChangeText={setEditYear}
+            placeholder="Year"
+          />
+        ) : (
+          <Text style={styles.userYearBlock}>{profile?.year_level || '4'}</Text>
+        )}
+        <Text style={styles.userDeptSep}> </Text>
+        {editMode ? (
+          <TextInput
+            style={styles.userYearBlockInput}
+            value={editBlock}
+            onChangeText={setEditBlock}
+            placeholder="Block"
+          />
+        ) : (
+          <Text style={styles.userYearBlock}>{profile?.block || 'A'}</Text>
+        )}
+      </View>
+
+      {/* Gender */}
+      <View style={{ width: '100%', marginBottom: 8, alignItems: 'center' }}>
+        <Text style={styles.genderText}>{profile?.gender || 'Not specified'}</Text>
+      </View>
+
+      {/* Bio */}
+      <View style={{ width: '100%', marginBottom: 16 }}>
+        {editMode ? (
+          <TextInput
+            style={styles.bioInput}
+            value={editBio}
+            onChangeText={setEditBio}
+            placeholder="Write something about yourself..."
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+          />
+        ) : (
+          <Text style={styles.bioText}>{profile?.bio || 'No Bio'}</Text>
+        )}
+      </View>
+    </>
+  )}
+
+  {/* Edit Buttons */}
+  {editMode && (
+    <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 16 }}>
+      <TouchableOpacity style={styles.saveBtn} onPress={handleSaveProfile}>
+        <Text style={styles.saveBtnText}>Save</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelEdit}>
+        <Text style={styles.cancelBtnText}>Cancel</Text>
+      </TouchableOpacity>
+    </View>
+  )}
+</View>
+
           {/* Tab View */}
           <TabView
             style={{ flex: 1 }}

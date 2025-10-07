@@ -21,7 +21,14 @@ export default function CommentScreen() {
 
   useEffect(() => {
     fetchComments();
-    getCurrentUser().then(({ data }) => setCurrentUserId(data?.user?.id || null));
+    getCurrentUser().then(({ data, error }) => {
+      if (error) {
+        console.error('Error getting current user:', error);
+        setCurrentUserId(null);
+      } else {
+        setCurrentUserId(data?.user?.id || null);
+      }
+    });
   }, [projectId]);
 
   const fetchComments = async () => {

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Linking, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import PostCard from '../../components/PostCard';
 import { getAllProjects, getAllUsers, getAnalytics, getApprovedProjects, getPendingProjects, getProjectStatusCounts, getRejectedProjects, supabaseAdmin } from '../../lib/supabaseAdmin';
 

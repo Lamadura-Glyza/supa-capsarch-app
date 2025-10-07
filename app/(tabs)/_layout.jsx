@@ -12,7 +12,13 @@ function NotificationTabIcon({ color, focused }) {
       let mounted = true;
       const fetchUnread = async () => {
         try {
-          const { data: { user } } = await getCurrentUser();
+          const { data, error: userError } = await getCurrentUser();
+          if (userError) {
+            console.error('Error getting current user in focus effect:', userError);
+            if (mounted) setUnread(0);
+            return;
+          }
+          const user = data?.user;
           if (user) {
             const count = await getUnreadNotificationCount();
             if (mounted) setUnread(count);
@@ -30,7 +36,13 @@ function NotificationTabIcon({ color, focused }) {
     let mounted = true;
     const poll = async () => {
       try {
-        const { data: { user } } = await getCurrentUser();
+        const { data, error: userError } = await getCurrentUser();
+        if (userError) {
+          console.error('Error getting current user in polling:', userError);
+          if (mounted) setUnread(0);
+          return;
+        }
+        const user = data?.user;
         if (user) {
           const count = await getUnreadNotificationCount();
           if (mounted) setUnread(count);
@@ -71,7 +83,8 @@ function NotificationTabIcon({ color, focused }) {
 }
 
 export default function TabsLayout() {
-  const [isAdmin, setIsAdmin] = React.useState(false);
+  const [role, setRole] = React.useState(null);
+  const [status, setStatus] = React.useState(null);
   const [checkingRole, setCheckingRole] = React.useState(true);
 
   // Check admin status on mount and when tab is focused
@@ -80,7 +93,10 @@ export default function TabsLayout() {
       let mounted = true;
       setCheckingRole(true);
       getUserProfile().then(profile => {
-        if (mounted) setIsAdmin(profile?.role === 'admin');
+        if (mounted) {
+          setRole(profile?.role || null);
+          setStatus(profile?.status || null);
+        }
       }).finally(() => {
         if (mounted) setCheckingRole(false);
       });
@@ -90,6 +106,26 @@ export default function TabsLayout() {
 
   if (checkingRole) {
     return <ActivityIndicator style={{ flex: 1, alignSelf: 'center', marginTop: 100 }} size="large" color={COLORS.primary} />;
+  }
+
+  const isTeacher = role === 'teacher';
+  const isRestrictedTeacher = isTeacher && (status === 'pending' || status === 'rejected');
+  const isTeacherAdmin = role === 'teacher_admin';
+
+  if (isRestrictedTeacher) {
+    return (
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: COLORS.darkprimary,
+          tabBarInactiveTintColor: COLORS.primary,
+          tabBarStyle: { height: 100, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderTopWidth: 0, elevation: 0, shadowOpacity: 0 },
+          tabBarLabelStyle: { fontSize: 12, fontWeight: '600', alignContent: 'center', justifyContent: 'center'},
+        }}
+      >
+        <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+      </Tabs>
+    );
   }
 
   return (
@@ -131,7 +167,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="search" options={{ title: 'Search'}} />
       <Tabs.Screen name="upload" options={{ title: 'Upload' }} />
       <Tabs.Screen name="notifications" options={{ title: 'Notifications'}} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile'}} />
+      <Tabs.Screen name="profile" options={{ title: isTeacher ? 'Profile' : 'Profile'}} />
     </Tabs>
   );
 } 

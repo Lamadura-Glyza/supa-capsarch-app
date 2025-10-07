@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Image, Modal, RefreshControl, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Modal, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCurrentUser, getUserProfile, signOut } from '../../lib/supabase';
 
 const DEFAULT_AVATAR = 'https://ui-avatars.com/api/?name=Admin&background=4A90E2&color=fff&size=120';
@@ -10,14 +11,29 @@ export default function AdminProfile() {
   const [profile, setProfile] = useState(null);
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchProfileIfAuthenticated = async () => {
-      const { data: { user } } = await getCurrentUser();
-      if (user) {
-        getUserProfile().then(setProfile);
-      } else {
+      try {
+        setLoading(true);
+        setError(null);
+        const { data, error } = await getCurrentUser();
+        if (error || !data?.user) {
+          console.error('No valid session found:', error);
+          setError('No valid session found');
+          setProfile(null);
+          return;
+        }
+        const profileData = await getUserProfile();
+        setProfile(profileData);
+      } catch (err) {
+        console.error('Error fetching admin profile:', err);
+        setError('Failed to load profile');
         setProfile(null);
+      } finally {
+        setLoading(false);
       }
     };
     fetchProfileIfAuthenticated();
@@ -25,8 +41,24 @@ export default function AdminProfile() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await getUserProfile().then(setProfile);
-    setRefreshing(false);
+    setError(null);
+    try {
+      const { data, error } = await getCurrentUser();
+      if (error || !data?.user) {
+        console.error('No valid session found during refresh:', error);
+        setError('No valid session found');
+        setProfile(null);
+        return;
+      }
+      const profileData = await getUserProfile();
+      setProfile(profileData);
+    } catch (err) {
+      console.error('Error refreshing admin profile:', err);
+      setError('Failed to refresh profile');
+      setProfile(null);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -39,6 +71,36 @@ export default function AdminProfile() {
     setSettingsModalVisible(false);
     router.push('/EditProfile');
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor="#f5f5f5" />
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => {
+            setError(null);
+            setLoading(true);
+            // Trigger useEffect by updating a dependency
+            setProfile(null);
+          }}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -72,9 +134,6 @@ export default function AdminProfile() {
             <Text style={styles.email}>{profile?.email || 'admin@email.com'}</Text>
             <View style={styles.roleBadge}>
               <Text style={styles.roleText}>Admin</Text>
-            </View>
-            <View style={styles.genderRow}>
-              <Text style={styles.genderText}>{profile?.gender || 'Not specified'}</Text>
             </View>
           </View>
         </View>
@@ -198,16 +257,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     letterSpacing: 1,
   },
-  genderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 18,
-  },
-  genderText: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
-  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -252,5 +301,40 @@ const styles = StyleSheet.create({
   },
   logoutModalText: {
     color: '#ff6b6b',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 20,
+    backgroundColor: '#35359e',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

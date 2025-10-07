@@ -10,8 +10,13 @@ export default function ProjectStatusScreen() {
   const [currentUserId, setCurrentUserId] = useState(null);
 
   useEffect(() => {
-    getCurrentUser().then(({ data }) => {
-      setCurrentUserId(data?.user?.id || null);
+    getCurrentUser().then(({ data, error }) => {
+      if (error) {
+        console.error('Error getting current user:', error);
+        setCurrentUserId(null);
+      } else {
+        setCurrentUserId(data?.user?.id || null);
+      }
     });
   }, []);
 

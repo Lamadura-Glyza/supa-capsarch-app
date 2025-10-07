@@ -25,14 +25,22 @@ export default function SearchScreen() {
   const { refreshKey } = useRefresh();
 
   useEffect(() => {
-    getCurrentUser().then(({ data }) => setCurrentUserId(data?.user?.id || null));
+    getCurrentUser().then(({ data, error }) => {
+      if (error) {
+        console.error('Error getting current user:', error);
+        setCurrentUserId(null);
+      } else {
+        setCurrentUserId(data?.user?.id || null);
+      }
+    });
   }, [refreshKey]);
 
   useEffect(() => {
     if (!query.trim()) {
       setLoading(true);
-      getCurrentUser().then(({ data }) => {
-        if (!data?.user) {
+      getCurrentUser().then(({ data, error }) => {
+        if (error || !data?.user) {
+          console.error('Error getting current user:', error);
           setProjectResults([]);
           setSearched(true);
           setLoading(false);

@@ -1,6 +1,7 @@
 import { Stack, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { getLoginErrorMessage } from '../lib/loginMessageStore';
 import { RefreshProvider } from '../lib/RefreshContext';
 import { getUserProfile, supabase } from '../lib/supabase';
 
@@ -25,6 +26,7 @@ export default function RootLayout() {
   const [role, setRole] = useState(null);
   const [checkingRole, setCheckingRole] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [isPendingTeacher, setIsPendingTeacher] = useState(false); // 🧩 Added flag
   const router = useRouter();
 
   useEffect(() => {
@@ -34,8 +36,15 @@ export default function RootLayout() {
     const checkAuth = async () => {
       try {
         console.log("Starting auth check...");
-        // Check for existing session
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          console.error('Session check error:', sessionError);
+          if (mounted) {
+            setIsLoggedIn(false);
+            setIsLoading(false);
+          }
+          return;
+        }
         console.log('Initial auth check - session:', !!session);
         if (mounted) {
           setIsLoggedIn(!!session);
@@ -55,16 +64,27 @@ export default function RootLayout() {
       async (event, session) => {
         try {
           console.log('Auth state changed:', event, !!session);
+
+          // Handle pending/rejected teacher redirect back to login
+          if (event === 'SIGNED_OUT') {
+            const message = getLoginErrorMessage();
+            if (message) {
+              console.log('Redirecting back to login with message:', message);
+              router.replace({ pathname: '/login', params: { errorMessage: message } });
+              return;
+            }
+          }
+
           if (mounted) {
-            // Always update state based on session presence
             const newLoginState = !!session;
             console.log('Setting isLoggedIn to:', newLoginState, 'for event:', event);
             setIsLoggedIn(newLoginState);
             setIsLoading(false);
-            // Always re-check role after any auth state change
+
             if (newLoginState) {
               setCheckingRole(true);
-              getUserProfile().then(profile => {
+              getUserProfile().then(async (profile) => {
+                // No auto sign-outs; login gate happens before session creation
                 setRole(profile?.role);
                 setCheckingRole(false);
               }).catch((error) => {
@@ -75,6 +95,10 @@ export default function RootLayout() {
             } else {
               setRole(null);
             }
+          }
+
+          if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+            console.log('Token refreshed or user updated, session is still valid');
           }
         } catch (error) {
           console.error('Error in auth state change handler:', error);
@@ -89,7 +113,6 @@ export default function RootLayout() {
 
     checkAuth();
 
-    // Cleanup subscription and mounted flag
     return () => {
       mounted = false;
       subscription.unsubscribe();
@@ -100,7 +123,31 @@ export default function RootLayout() {
   useEffect(() => {
     if (!isLoggedIn) return;
     setCheckingRole(true);
-    getUserProfile().then(profile => {
+
+    getUserProfile().then(async (profile) => {
+      if (profile?.role === 'teacher') {
+        if (profile?.status === 'pending') {
+          console.log('Redirecting pending teacher to PendingApprovalScreen');
+          setIsPendingTeacher(true);
+          setCheckingRole(false);
+          setTimeout(() => {
+            router.replace('/pending-approval?status=pending');
+          }, 150);
+          return;
+        }
+
+        if (profile?.status === 'rejected') {
+          console.log('Redirecting rejected teacher to PendingApprovalScreen');
+          setIsPendingTeacher(true);
+          setCheckingRole(false);
+          setTimeout(() => {
+            router.replace('/pending-approval?status=rejected');
+          }, 150);
+          return;
+        }
+      }
+
+      setIsPendingTeacher(false);
       setRole(profile?.role);
       setCheckingRole(false);
     }).catch((error) => {
@@ -110,8 +157,7 @@ export default function RootLayout() {
     });
   }, [isLoggedIn]);
 
-
-  // Global error handler
+  // Error handling
   if (hasError) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#f5f5f5' }}>
@@ -128,7 +174,6 @@ export default function RootLayout() {
     );
   }
 
-  // Check if environment variables are missing
   if (!process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#f5f5f5' }}>
@@ -142,22 +187,23 @@ export default function RootLayout() {
     );
   }
 
-  if (isLoading || checkingRole || (isLoggedIn && role === null)) {
+  if (isLoading || checkingRole) {
     return <ActivityIndicator size="large" color="#35359e" style={{ flex: 1, justifyContent: 'center' }} />;
   }
 
-  // Route based on role
+  // ✅ Routing logic based on role and status
   return (
     <RefreshProvider>
       <Stack screenOptions={{ headerShown: false }}>
-        {!isLoggedIn ? (
-          <Stack.Screen name="(auth)" />
-        ) : role === 'admin' ? (
+        {!isLoggedIn && <Stack.Screen name="(auth)" />}
+        {!isLoggedIn && <Stack.Screen name="pending-approval" />}
+        {isLoggedIn && (role === 'admin' || role === 'teacher_admin') && (
           <Stack.Screen name="(adminTabs)" />
-        ) : (
+        )}
+        {isLoggedIn && !(role === 'admin' || role === 'teacher_admin') && (
           <Stack.Screen name="(tabs)" />
         )}
       </Stack>
     </RefreshProvider>
   );
-} 
+}

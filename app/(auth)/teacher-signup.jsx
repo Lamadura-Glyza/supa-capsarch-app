@@ -5,13 +5,15 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from "react-native-safe-area-context";
 import COLORS from "../../constants/colors";
-import { signUpWithEmail } from '../../lib/supabase';
+import { signUpTeacherWithProfile } from '../../lib/supabase';
 
 const TeacherSignup = () => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [gender, setGender] = useState('');
+  const [bio, setBio] = useState('');
   const [isPasswordShown, setIsPasswordShown] = useState(false);
   const [isConfirmPasswordShown, setIsConfirmPasswordShown] = useState(false);
   const [error, setError] = useState('');
@@ -46,13 +48,13 @@ const TeacherSignup = () => {
 
     setLoading(true);
     try {
-      // Prepare user metadata for signup
-      const userMetadata = {
-        full_name: fullName.trim(),
-        role: 'teacher',
-      };
-      
-      const { data, error } = await signUpWithEmail(email.trim(), password, userMetadata);
+      const { data, error } = await signUpTeacherWithProfile({
+        fullName: fullName.trim(),
+        email: email.trim(),
+        password,
+        gender,
+        bio,
+      });
       if (error) {
         console.error('Teacher signup error:', error);
         if (
@@ -73,7 +75,7 @@ const TeacherSignup = () => {
         if (data?.user && !data?.session) {
           // User created but needs email confirmation
           console.log('Teacher user created, email confirmation required');
-          setSuccess('Account created successfully! You can now log in with your credentials.');
+          setSuccess('Account created! Please verify your email. Admin must approve before login.');
           setError('');
           // Immediate redirect - no artificial delay
           router.replace('/(auth)/login');
@@ -149,17 +151,7 @@ const TeacherSignup = () => {
           >
             Please fill in your information
           </Text>
-          <Text
-            style={{
-              fontSize: 16,
-              fontWeight: 'bold',
-              color: '#35359e',
-              textAlign: 'center',
-              marginBottom: 16,
-            }}
-          >
-            Signing up as: Teacher
-          </Text>
+          
           {error ? (
             <Text style={{ color: 'red', textAlign: 'center', marginBottom: 8 }}>{error}</Text>
           ) : null}
@@ -177,7 +169,7 @@ const TeacherSignup = () => {
               fontWeight: '600',
             }}
           >
-            Full Name *
+            Full Name 
           </Text>
           <TextInput
             placeholder="Full Name"
@@ -205,8 +197,9 @@ const TeacherSignup = () => {
               fontWeight: '600',
             }}
           >
-            Email *
+            Email 
           </Text>
+          
           <TextInput
             placeholder="Email"
             placeholderTextColor="#888"
@@ -224,6 +217,62 @@ const TeacherSignup = () => {
             value={email}
             onChangeText={setEmail}
           />
+          {/* Gender */}
+          <Text
+            style={{
+              fontSize: 14,
+              color: '#35359e',
+              marginBottom: 4,
+              marginTop: 10,
+              fontWeight: '600',
+            }}
+          >
+            Gender
+          </Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 8,
+            }}
+          >
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', marginRight: 20 }}
+              onPress={() => setGender('male')}
+            >
+              <View
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  borderWidth: 2,
+                  borderColor: '#35359e',
+                  marginRight: 6,
+                  backgroundColor: gender === 'male' ? '#35359e' : '#fff',
+                }}
+              />
+              <Text style={{ color: '#35359e', fontSize: 15, fontWeight: '600' }}>Male</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center' }}
+              onPress={() => setGender('female')}
+            >
+              <View
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  borderWidth: 2,
+                  borderColor: '#35359e',
+                  marginRight: 6,
+                  backgroundColor: gender === 'female' ? '#35359e' : '#fff',
+                }}
+              />
+              <Text style={{ color: '#35359e', fontSize: 15, fontWeight: '600' }}>Female</Text>
+            </TouchableOpacity>
+          </View>
+
+          
 
           {/* Password */}
           <Text
@@ -235,7 +284,7 @@ const TeacherSignup = () => {
               fontWeight: '600',
             }}
           >
-            Password *
+            Password 
           </Text>
           <View style={{ position: 'relative' }}>
             <TextInput
@@ -281,7 +330,7 @@ const TeacherSignup = () => {
               fontWeight: '600',
             }}
           >
-            Confirm Password *
+            Confirm Password 
           </Text>
           <View style={{ position: 'relative' }}>
             <TextInput
